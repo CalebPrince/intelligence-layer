@@ -1,5 +1,6 @@
 import type {
   ActivityItem,
+  ErrorLog,
   AnalyticsSummary,
   BrowseResult,
   Capability,
@@ -102,6 +103,14 @@ export async function recordDecision(params: {
 export async function listModels(): Promise<ModelSpec[]> {
   const res = await fetch(`${BASE}/v1/models`, { cache: "no-store" });
   if (!res.ok) throw new Error("Failed to load model registry");
+  return res.json();
+}
+
+export async function listErrors(ownerId: string, source?: "server" | "model"): Promise<ErrorLog[]> {
+  const params = new URLSearchParams({ owner_id: ownerId });
+  if (source) params.set("source", source);
+  const res = await fetch(`${BASE}/v1/errors?${params}`, { cache: "no-store" });
+  if (!res.ok) throw new Error(await readError(res, "Could not load error logs"));
   return res.json();
 }
 

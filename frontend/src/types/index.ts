@@ -17,6 +17,17 @@ export interface ChatMessage {
   content: string;
 }
 
+export interface ErrorLog {
+  id: string;
+  owner_id?: string | null;
+  source: "server" | "model";
+  severity: string;
+  message: string;
+  detail?: string | null;
+  path?: string | null;
+  created_at: string;
+}
+
 export interface ModelResponse {
   id?: string;
   model_id: string;

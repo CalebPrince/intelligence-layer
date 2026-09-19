@@ -2,6 +2,7 @@
 
 import {
   Asterisk,
+  AlertTriangle,
   Cog,
   Compass,
   FolderKanban,
@@ -40,7 +41,7 @@ const NAV: { href: string; label: string; icon: LucideIcon }[] = [
 ];
 
 // Workspace-level pages (no single project in scope) get the workspace sidebar.
-const WORKSPACE_PATHS = ["/dashboard", "/projects", "/decisions", "/context", "/integrations", "/agents", "/analytics", "/settings", "/help"];
+const WORKSPACE_PATHS = ["/dashboard", "/projects", "/decisions", "/context", "/integrations", "/agents", "/analytics", "/errors", "/settings", "/help"];
 
 // Nav for the workspace sidebar. `projectScoped` links need a project id; we
 // point them at the most recently updated project.
@@ -53,6 +54,7 @@ const WORKSPACE_NAV: { href: string; label: string; icon: LucideIcon; projectSco
   { href: "/integrations", label: "Integrations", icon: Plug },
   { href: "/agents", label: "Agents", icon: Users },
   { href: "/analytics", label: "Analytics", icon: BarChart3 },
+  { href: "/errors", label: "Error Logs", icon: AlertTriangle },
   { href: "/settings", label: "Settings", icon: Settings },
 ];
 

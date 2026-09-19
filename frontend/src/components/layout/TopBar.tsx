@@ -20,6 +20,7 @@ const JUMP_TARGETS: { match: string[]; href: string }[] = [
   { match: ["decision"], href: "/decisions" },
   { match: ["context", "file", "document"], href: "/context" },
   { match: ["activity"], href: "/activity" },
+  { match: ["error", "logs", "server"], href: "/errors" },
   { match: ["project"], href: "/projects" },
 ];
 
@@ -32,7 +33,7 @@ function timeAgo(iso?: string): string {
   return `${Math.round(hours / 24)}d ago`;
 }
 
-const WORKSPACE_PATHS = ["/dashboard", "/projects", "/decisions", "/context", "/integrations", "/agents", "/analytics", "/settings", "/help"];
+const WORKSPACE_PATHS = ["/dashboard", "/projects", "/decisions", "/context", "/integrations", "/agents", "/analytics", "/errors", "/settings", "/help"];
 
 export function TopBar() {
   const pathname = usePathname();

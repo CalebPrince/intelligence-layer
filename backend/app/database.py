@@ -710,10 +710,44 @@ def save_message(
     }
 
 
+def record_error_log(
+    message: str,
+    source: str = "server",
+    owner_id: str | None = None,
+    detail: str | None = None,
+    path: str | None = None,
+    severity: str = "error",
+) -> None:
+    with get_connection() as conn:
+        conn.execute(
+            "INSERT INTO error_logs (id, owner_id, source, severity, message, detail, path, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            (_new_id(), owner_id, source, severity, message[:2000], detail, path, _now()),
+        )
+
+
+def list_error_logs(owner_id: str, limit: int = 100, source: str | None = None) -> list[dict[str, Any]]:
+    with get_connection() as conn:
+        params: list[Any] = [owner_id, limit]
+        source_sql = ""
+        if source in {"server", "model"}:
+            source_sql = " AND source = ?"
+            params.insert(-1, source)
+        rows = conn.execute(
+            f"SELECT id, owner_id, source, severity, message, detail, path, created_at FROM error_logs WHERE (owner_id = ? OR owner_id IS NULL){source_sql} ORDER BY created_at DESC LIMIT ?",
+            params,
+        ).fetchall()
+        return [dict(row) for row in rows]
+
+
 def save_model_responses(message_id: str, responses: list[ModelResponse]) -> list[dict[str, Any]]:
     now = _now()
     rows: list[dict[str, Any]] = []
     with get_connection() as conn:
+        owner_row = conn.execute(
+            "SELECT p.owner_id FROM messages m JOIN conversations c ON c.id = m.conversation_id JOIN projects p ON p.id = c.project_id WHERE m.id = ?",
+            (message_id,),
+        ).fetchone()
+        owner_id = owner_row["owner_id"] if owner_row else None
         for r in responses:
             row_id = _new_id()
             conn.execute(
@@ -725,6 +759,11 @@ def save_model_responses(message_id: str, responses: list[ModelResponse]) -> lis
                     r.tokens_out, r.cost_usd, r.latency_ms, int(r.success), r.error, now,
                 ),
             )
+            if not r.success and r.error:
+                conn.execute(
+                    "INSERT INTO error_logs (id, owner_id, source, severity, message, detail, path, created_at) VALUES (?, ?, 'model', 'error', ?, ?, ?, ?)",
+                    (_new_id(), owner_id, f"{r.display_name} request failed", r.error[:4000], r.model_id, now),
+                )
             rows.append(
                 {
                     "id": row_id,

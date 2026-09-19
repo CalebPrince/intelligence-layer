@@ -98,6 +98,18 @@ CREATE TABLE IF NOT EXISTS model_responses (
 );
 CREATE INDEX IF NOT EXISTS model_responses_message_id_idx ON model_responses(message_id);
 
+CREATE TABLE IF NOT EXISTS error_logs (
+  id          TEXT PRIMARY KEY,
+  owner_id    TEXT,
+  source      TEXT NOT NULL,
+  severity    TEXT NOT NULL DEFAULT 'error',
+  message     TEXT NOT NULL,
+  detail      TEXT,
+  path        TEXT,
+  created_at  TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS error_logs_owner_created_idx ON error_logs(owner_id, created_at);
+
 -- which perspective the user actually acted on, and under what ask
 -- (task_type/mode) — router.py's per-project affinity signal reads this
 CREATE TABLE IF NOT EXISTS decisions (

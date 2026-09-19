@@ -1,8 +1,9 @@
 """FastAPI entry point."""
 import asyncio
+import traceback
 from contextlib import asynccontextmanager, suppress
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 
 from app import database, import_service
@@ -12,6 +13,7 @@ from app.api.chat import router as chat_router
 from app.api.context import router as context_router
 from app.api.credits import router as credits_router
 from app.api.dashboard import router as dashboard_router
+from app.api.errors import router as errors_router
 from app.api.decisions import router as decisions_router
 from app.api.imports import router as imports_router
 from app.api.integrations import router as integrations_router
@@ -49,12 +51,26 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
+@app.exception_handler(Exception)
+async def record_unhandled_error(request: Request, exc: Exception):
+    database.record_error_log(
+        message=str(exc) or exc.__class__.__name__,
+        detail=traceback.format_exc(),
+        path=request.url.path,
+        owner_id=request.query_params.get("owner_id"),
+    )
+    from fastapi.responses import JSONResponse
+    return JSONResponse(status_code=500, content={"detail": "Internal server error"})
+
+
 app.include_router(agents_router)
 app.include_router(analytics_router)
 app.include_router(chat_router)
 app.include_router(context_router)
 app.include_router(credits_router)
 app.include_router(dashboard_router)
+app.include_router(errors_router)
 app.include_router(decisions_router)
 app.include_router(imports_router)
 app.include_router(integrations_router)
