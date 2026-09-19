@@ -498,9 +498,7 @@ function ChatPageInner() {
       <div className="flex flex-col gap-3 pl-2">
         {visibleResponses.map((response, index) => (
           <div key={response.id ?? `${response.model_id}-${index}`} className="flex items-start gap-3">
-            <span className="mt-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#0F1B3D]">
-              <LogoMark className="h-5 w-5" />
-            </span>
+            <ProviderLogo provider={response.provider} tile className="mt-1 h-9 w-9 shrink-0" />
             <div className={`max-w-[78%] rounded-2xl rounded-tl-md border px-4 py-3 ${response.success ? "border-ink/[0.08] bg-white" : "border-red-100 bg-red-50"}`}>
               <p className="mb-1 text-xs font-semibold text-ink/55">
                 {providerLabel(response.provider, response.display_name)}
@@ -588,7 +586,7 @@ function ChatPageInner() {
                     </span>
                   </div>
 
-                  {turnIndex === 0 ? (
+                  {(turnIndex === 0 && (turn.response?.responses.filter((response) => response.phase === "initial").length ?? 0) > 1) ? (
                     <ProjectIntelligence
                       turn={turn}
                       taskLine={taskLine(turn)}
