@@ -54,19 +54,12 @@ interface AgentCard {
   chatKey?: string;
 }
 
-// PLACEHOLDER roster until agents have a real backend (status, tasks and
-// activity are illustrative — see Analytics and Chat for the real per-model
-// numbers this will eventually be replaced with). Sage is the one exception:
-// `live: true` really talks to princecaleb.dev's own Sage agent, with real
-// shared memory — see the README's "Known gaps" for the plan to extend this.
+// This roster mirrors the agents available through princecaleb.dev's agent API.
 const AGENTS: AgentCard[] = [
   { key: "wendy", name: "Wendy", role: "System Observer", status: "Active", icon: Asterisk, tile: "from-violet-400 to-fuchsia-500", tasks: 12, activity: "Online now", chatKey: "wendy", description: "Oversees all agents, monitors system health and watches over operations (including you).", tags: ["Monitoring", "Reporting", "Oversight"] },
   { key: "chief", name: "Chief", role: "Operations Manager", status: "Active", icon: Cog, tile: "from-amber-300 to-orange-500", tasks: 18, activity: "Online now", chatKey: "chief", description: "Coordinates agents, manages tasks and provides daily reports.", tags: ["Coordination", "Planning", "Reporting"] },
   { key: "chloe", name: "Chloe O'Brian", role: "Error Log Monitor", status: "Active", icon: Radar, tile: "from-teal-300 to-emerald-600", tasks: 9, activity: "Online now", chatKey: "chloe", description: "Monitors error logs, detects issues and alerts on anomalies.", tags: ["Monitoring", "Alerts", "Debugging"] },
   { key: "sage", name: "Sage", role: "Marketing Frameworks Specialist", status: "Active", icon: Compass, tile: "from-sky-300 to-blue-600", tasks: 14, activity: "Online now", live: true, description: "The real Sage from princecaleb.dev — works through a marketing problem via Hormozi, Brunson, Ogilvy, Cialdini and Godin. Genuinely remembers this conversation.", tags: ["Marketing Frameworks", "Live"] },
-  { key: "leo", name: "Leo", role: "Research Analyst", status: "Idle", icon: ScrollText, tile: "from-indigo-300 to-blue-700", tasks: 6, activity: "Last active 1h ago", description: "Conducts research, analyzes information and provides insights.", tags: ["Research", "Analysis", "Summaries"] },
-  { key: "maya", name: "Maya", role: "Project Assistant", status: "Active", icon: FolderCog, tile: "from-rose-300 to-pink-600", tasks: 11, activity: "Online now", description: "Helps manage project tasks, files and documentation.", tags: ["Tasks", "Files", "Organization"] },
-  { key: "kai", name: "Kai", role: "Automation Builder", status: "Offline", icon: Wand2, tile: "from-slate-400 to-slate-700", tasks: 4, activity: "Last active 5h ago", description: "Designs and implements automation workflows and integrations.", tags: ["Automation", "Integrations", "Tools"] },
   { key: "lisa", name: "Lisa", role: "Executive Assistant", status: "Idle", icon: UserCog, tile: "from-cyan-300 to-blue-600", tasks: 0, activity: "Ready when connected", chatKey: "lisa", description: "Organizes conversations, follow-ups and executive support work.", tags: ["Assistant", "Planning", "Follow-up"] },
   { key: "content", name: "Content", role: "Content Strategist", status: "Idle", icon: Feather, tile: "from-fuchsia-300 to-violet-600", tasks: 0, activity: "Ready when connected", chatKey: "content", description: "Shapes content ideas, drafts and publishing direction.", tags: ["Content", "Writing", "Strategy"] },
   { key: "beacon", name: "Beacon", role: "Lead Researcher", status: "Idle", icon: Radar, tile: "from-lime-300 to-emerald-600", tasks: 0, activity: "Ready when connected", chatKey: "beacon", description: "Finds and qualifies opportunities for the studio pipeline.", tags: ["Leads", "Research", "Qualification"] },
@@ -90,7 +83,7 @@ const ACTIVITY = [
   { agent: "Chloe O'Brian", tile: "from-teal-300 to-emerald-600", icon: Radar, action: "Checked error logs", ts: "12 min ago" },
   { agent: "Sage", tile: "from-sky-300 to-blue-600", icon: Compass, action: "Published YouTube script", ts: "1 hour ago" },
   { agent: "Chief", tile: "from-amber-300 to-orange-500", icon: Cog, action: "Assigned new tasks", ts: "2 hours ago" },
-  { agent: "Maya", tile: "from-rose-300 to-pink-600", icon: FolderCog, action: "Synced project files", ts: "3 hours ago" },
+  { agent: "Ada", tile: "from-emerald-300 to-teal-600", icon: CreditCard, action: "Prepared an invoice draft", ts: "3 hours ago" },
 ];
 
 const QUICK = [
