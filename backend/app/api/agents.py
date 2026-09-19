@@ -160,3 +160,12 @@ async def proposal_draft(inquiry_id: int | None = None, brief: str = "") -> dict
         return await run_in_threadpool(agent_client.request_json, "/api/v1/admin/proposals/generate", payload)
     except agent_client.AgentError as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc
+
+
+@router.get("/names")
+async def agent_names() -> dict[str, str]:
+    try:
+        result = await run_in_threadpool(agent_client.get_json, "/api/v1/admin/agent-names")
+        return {str(key): str(value) for key, value in result.items()}
+    except agent_client.AgentError:
+        return {}

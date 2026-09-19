@@ -456,6 +456,12 @@ export async function draftProposal(brief: string, inquiryId?: number): Promise<
   return res.json();
 }
 
+export async function getAgentNames(): Promise<Record<string, string>> {
+  const res = await fetch(`${BASE}/v1/agents/names`, { cache: "no-store" });
+  if (!res.ok) return {};
+  return res.json();
+}
+
 // --- milestones ----------------------------------------------------------------
 
 export async function getNextMilestone(projectId: string): Promise<Milestone | null> {

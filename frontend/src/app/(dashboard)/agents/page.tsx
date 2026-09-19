@@ -27,7 +27,7 @@ import {
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { PageHero } from "@/components/dashboard/PageHero";
-import { agentChat, draftProposal, getAgentHistory, listProjects, recordDecision, sageChat } from "@/lib/api";
+import { agentChat, draftProposal, getAgentHistory, getAgentNames, listProjects, recordDecision, sageChat } from "@/lib/api";
 import type { ProposalDraft } from "@/lib/api";
 
 const DEMO_OWNER_ID = "00000000-0000-0000-0000-000000000000";
@@ -130,6 +130,7 @@ export default function AgentsPage() {
   const [sageOpen, setSageOpen] = useState(false);
   const [chatAgent, setChatAgent] = useState<AgentCard | null>(null);
   const [proposalOpen, setProposalOpen] = useState(false);
+  const [activeNames, setActiveNames] = useState<Record<string, string>>({});
   const [projectId, setProjectId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -138,7 +139,14 @@ export default function AgentsPage() {
       .catch(() => setProjectId(null));
   }, []);
 
-  const visible = useMemo(() => (tab === "All Agents" || tab === "Custom" ? AGENTS : AGENTS.filter((a) => a.status === tab)), [tab]);
+  useEffect(() => {
+    getAgentNames().then(setActiveNames).catch(() => setActiveNames({}));
+  }, []);
+
+  const visible = useMemo(() => {
+    const filtered = tab === "All Agents" || tab === "Custom" ? AGENTS : AGENTS.filter((a) => a.status === tab);
+    return filtered.map((agent) => ({ ...agent, name: activeNames[agent.key] ?? agent.name }));
+  }, [activeNames, tab]);
   const activeCount = AGENTS.filter((a) => a.status === "Active").length;
 
   return (

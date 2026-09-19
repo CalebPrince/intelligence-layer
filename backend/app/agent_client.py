@@ -68,3 +68,24 @@ def request_json(path: str, payload: dict[str, Any]) -> dict[str, Any]:
     if not isinstance(result, dict):
         raise AgentError("prince-web-app returned an invalid draft.")
     return result
+
+
+def get_json(path: str) -> dict[str, Any]:
+    settings = get_settings()
+    token = settings.prince_web_app_admin_token.strip()
+    if not token:
+        raise AgentError("Admin agent access is not configured yet.")
+    try:
+        response = httpx.get(
+            f"{settings.prince_web_app_url.rstrip('/')}{path}",
+            headers={"Authorization": f"Bearer {token}"},
+            timeout=15.0,
+        )
+    except httpx.HTTPError as exc:
+        raise AgentError(f"Could not reach prince-web-app: {exc}") from exc
+    if response.status_code >= 400:
+        raise AgentError(f"prince-web-app returned an error ({response.status_code}).")
+    result = response.json()
+    if not isinstance(result, dict):
+        raise AgentError("prince-web-app returned invalid agent names.")
+    return result
