@@ -61,7 +61,25 @@ npm run dev           # backend http://localhost:8000 + frontend http://localhos
 
 `npm run dev:backend` / `npm run dev:frontend` start either one alone. `scripts/dev.mjs` is the launcher, `scripts/install.mjs` the setup.
 
-Backend settings (env vars or `backend/.env`): `WATCH_INTERVAL_SECONDS` (live scanner period, default 30), `SQLITE_PATH`, `CORS_ORIGINS`, provider API keys, and `PRINCE_WEB_APP_ADMIN_TOKEN` for authenticated prince-web-app agent chat. Generic agent memory is stored in this app's SQLite conversations and replayed to the upstream agent on each turn.
+Backend settings (env vars or `backend/.env`): `WATCH_INTERVAL_SECONDS` (live scanner period, default 30), `SQLITE_PATH`, `CORS_ORIGINS`, provider API keys, `PRINCE_WEB_APP_ADMIN_TOKEN` for authenticated prince-web-app agent chat, and `SHARED_MEMORY_TOKEN` for cross-app memory.
+
+### Shared agent memory
+
+The Inteli-Space backend owns the shared transcript in SQLite. Native prince-web-app agent chats use the bridge in `src/Support/SharedAgentMemory.php`, so both apps can restore and append turns for the same agent memory key.
+
+Configure the same values in production on both services:
+
+```env
+# Inteli-Space Railway backend
+SHARED_MEMORY_TOKEN=<one shared secret>
+
+# prince-web-app production
+MODEL_AGNOSTIC_MEMORY_URL=https://intelligence-layer-production-2d12.up.railway.app
+MODEL_AGNOSTIC_MEMORY_TOKEN=<the same shared secret>
+MODEL_AGNOSTIC_MEMORY_KEY=prince-caleb
+```
+
+The bridge is fail-closed: without the shared token it leaves the existing native browser transcript behavior untouched. Once configured, native prince-web-app chats and Inteli-Space agent chats share memory through the Railway API.
 
 Dev quirk: after adding a brand-new frontend file, Tailwind sometimes does not pick up its classes until the config is touched (`touch frontend/tailwind.config.ts`) or the dev server restarts.
 
