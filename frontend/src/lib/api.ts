@@ -11,6 +11,7 @@ import type {
   CreditSummary,
   ContextItem,
   ContextType,
+  ConversationSummary,
   DashboardSummary,
   DecisionCard,
   DecisionDetail,
@@ -586,14 +587,29 @@ export async function agentChat(
 
 // --- chat: restored history + what context was sent ---------------------------
 
-export async function getChatHistory(projectId: string): Promise<ChatHistory> {
-  const res = await fetch(`${BASE}/v1/projects/${projectId}/chat/history`, { cache: "no-store" });
+export async function getChatHistory(projectId: string, conversationId?: string): Promise<ChatHistory> {
+  const query = conversationId ? `?conversation_id=${encodeURIComponent(conversationId)}` : "";
+  const res = await fetch(`${BASE}/v1/projects/${projectId}/chat/history${query}`, { cache: "no-store" });
   if (!res.ok) throw new Error(await readError(res, "Could not load the conversation"));
   return res.json();
 }
 
-export async function clearChat(projectId: string): Promise<void> {
-  const res = await fetch(`${BASE}/v1/projects/${projectId}/chat`, { method: "DELETE" });
+export async function listConversations(projectId: string): Promise<ConversationSummary[]> {
+  const res = await fetch(`${BASE}/v1/projects/${projectId}/conversations`, { cache: "no-store" });
+  if (!res.ok) throw new Error(await readError(res, "Could not load recent chats"));
+  return res.json();
+}
+
+export async function createChatConversation(projectId: string): Promise<string> {
+  const res = await fetch(`${BASE}/v1/projects/${projectId}/chat/conversations`, { method: "POST" });
+  if (!res.ok) throw new Error(await readError(res, "Could not start a new chat"));
+  const data = (await res.json()) as { conversation_id: string };
+  return data.conversation_id;
+}
+
+export async function clearChat(projectId: string, conversationId?: string): Promise<void> {
+  const query = conversationId ? `?conversation_id=${encodeURIComponent(conversationId)}` : "";
+  const res = await fetch(`${BASE}/v1/projects/${projectId}/chat${query}`, { method: "DELETE" });
   if (!res.ok) throw new Error(await readError(res, "Could not clear the conversation"));
 }
 

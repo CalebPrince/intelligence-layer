@@ -13,7 +13,7 @@ export interface Turn {
 }
 
 export const PROVIDER_LABEL: Record<string, string> = {
-  openai: "GPT",
+  openai: "ChatGPT",
   anthropic: "Claude",
   gemini: "Gemini",
 };

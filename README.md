@@ -1,6 +1,6 @@
 # Inteli-Space
 
-> One project, routed across multiple model perspectives: Claude, GPT, and Gemini answer from the same project context, independently or together, and you record which answer you actually acted on.
+> One project, routed across multiple model perspectives: Claude, ChatGPT, and Gemini answer from the same project context, independently or together, and you record which answer you actually acted on.
 
 This file tracks where the build actually stands. Updated as work lands, not written once and forgotten.
 

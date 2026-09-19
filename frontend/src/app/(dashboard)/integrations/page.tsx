@@ -35,7 +35,7 @@ interface Connected {
 }
 
 const CONNECTED: Connected[] = [
-  { key: "openai", name: "OpenAI", description: "Access GPT models for chat, analysis and more.", logo: "/logos/openai.svg", providerKey: "openai" },
+  { key: "openai", name: "OpenAI", description: "Access ChatGPT models for chat, analysis and more.", logo: "/logos/openai.svg", providerKey: "openai" },
   { key: "claude", name: "Claude", description: "Access Claude models for deeper reasoning.", logo: "/logos/claude-color.svg", providerKey: "anthropic" },
   { key: "gemini", name: "Gemini", description: "Access Gemini models for multimodal tasks.", logo: "/logos/gemini-color.svg", providerKey: "gemini" },
   { key: "notion", name: "Notion", description: "Sync notes, docs and project knowledge.", logo: "/logos/notion.svg" },

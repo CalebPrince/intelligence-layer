@@ -19,12 +19,12 @@ import { ChatContextPanel } from "@/components/chat/ChatContextPanel";
 import { ProjectIntelligence } from "@/components/chat/ProjectIntelligence";
 import { formatTime, providerLabel, resolvedContent, type Turn } from "@/components/chat/turn";
 import { LogoMark, ProviderLogo } from "@/components/landing/Marks";
-import { approveGitHubProposal, clearChat, createGitHubProposal, createProject, getChatHistory, getProject, listModels, recordDecision, rejectGitHubProposal, sendChat } from "@/lib/api";
+import { approveGitHubProposal, clearChat, createChatConversation, createGitHubProposal, createProject, getChatHistory, getProject, listConversations, listModels, recordDecision, rejectGitHubProposal, sendChat } from "@/lib/api";
 import { AGENTS } from "@/lib/agents";
 import type { Capability, ChatMessage, ChatResponse, GitHubActionMode, GitHubFileChange, GitHubActionProposal, ModelSpec, Project, RoutingMode } from "@/types";
 
 // One mutually-exclusive selector: pick a routing mode, or point at one specific
-// model. Mirrors the Auto / GPT / Claude / Gemini / Parallel / Deliberate pill
+// model. Mirrors the Auto / ChatGPT / Claude / Gemini / Parallel / Deliberate pill
 // row as a single choice, not two independent ones.
 type Selection = { kind: "auto" } | { kind: "model"; modelId: string } | { kind: "parallel" } | { kind: "deliberation" };
 
@@ -132,7 +132,7 @@ const DEMO_OWNER_ID = "00000000-0000-0000-0000-000000000000";
 const CAPABILITIES: Capability[] = ["reasoning", "coding", "research", "fast", "cheap", "long_context"];
 
 const PROVIDER_PILLS = [
-  { provider: "openai", label: "GPT" },
+  { provider: "openai", label: "ChatGPT" },
   { provider: "anthropic", label: "Claude" },
   { provider: "gemini", label: "Gemini" },
 ];
@@ -165,6 +165,7 @@ function ChatPageInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const projectIdParam = searchParams.get("project");
+  const conversationParam = searchParams.get("conversation");
   const agentParam = searchParams.get("agent");
   const useParam = searchParams.get("use");
   const activeAgent = AGENTS.find((a) => a.key === agentParam);
@@ -173,6 +174,7 @@ function ChatPageInner() {
   const [project, setProject] = useState<Project | null>(null);
   const [provisioning, setProvisioning] = useState(!projectIdParam);
   const [conversationId, setConversationId] = useState<string | undefined>();
+  const [recentChats, setRecentChats] = useState<Awaited<ReturnType<typeof listConversations>>>([]);
 
   const [turns, setTurns] = useState<Turn[]>([]);
   const [historyLoaded, setHistoryLoaded] = useState(false);
@@ -238,7 +240,8 @@ function ChatPageInner() {
     if (!projectId) return;
     let cancelled = false;
     setHistoryLoaded(false);
-    getChatHistory(projectId)
+    listConversations(projectId).then(setRecentChats).catch(() => setRecentChats([]));
+    getChatHistory(projectId, conversationParam ?? undefined)
       .then((h) => {
         if (cancelled) return;
         setConversationId(h.conversation_id ?? undefined);
@@ -270,7 +273,7 @@ function ChatPageInner() {
     return () => {
       cancelled = true;
     };
-  }, [projectId]);
+  }, [projectId, conversationParam]);
 
   // picking a persona (from the sidebar, or a link) presets the task type;
   // it feeds real router scoring/affinity, unlike a decorative status label
@@ -371,6 +374,7 @@ function ChatPageInner() {
         taskType,
       });
       setConversationId(response.conversation_id);
+      listConversations(projectId).then(setRecentChats).catch(() => {});
       setTurns((prev) =>
         prev.map((t) =>
           t.id === turnId
@@ -424,18 +428,21 @@ function ChatPageInner() {
   async function clearCurrentChat() {
     if (!projectId) return;
     try {
-      await clearChat(projectId);
-      setTurns([]);
-      setConversationId(undefined);
-      textareaRef.current?.focus();
+      await clearChat(projectId, conversationId);
+      await startNewChat();
     } catch {
       // Keep the visible conversation if the server could not clear it.
     }
   }
 
-  function newChat() {
+  async function startNewChat() {
+    if (!projectId) return;
+    const id = await createChatConversation(projectId);
     setTurns([]);
-    setConversationId(undefined);
+    setConversationId(id);
+    const params = new URLSearchParams({ project: projectId, conversation: id });
+    if (agentParam) params.set("agent", agentParam);
+    router.replace(`/chat?${params.toString()}`);
     textareaRef.current?.focus();
   }
 
@@ -517,7 +524,29 @@ function ChatPageInner() {
         <div className="flex-1 overflow-y-auto px-6 pb-2 pt-5">
           <div className="flex flex-col gap-5">
             {turns.length > 0 && (
-              <div className="-mb-2 flex justify-end">
+              <div className="-mb-2 flex items-center justify-end gap-2">
+                <select
+                  value={conversationId ?? ""}
+                  onChange={(e) => {
+                    if (!e.target.value) return;
+                    const params = new URLSearchParams({ project: projectId, conversation: e.target.value });
+                    if (agentParam) params.set("agent", agentParam);
+                    router.push(`/chat?${params.toString()}`);
+                  }}
+                  className="max-w-[220px] rounded-lg border border-ink/10 bg-white px-2.5 py-1.5 text-xs text-ink/65 outline-none"
+                  aria-label="Recent chats"
+                >
+                  <option value="">Recent chats</option>
+                  {recentChats.map((chat) => (
+                    <option key={chat.id} value={chat.id}>{chat.last_prompt || chat.title}</option>
+                  ))}
+                </select>
+                <button
+                  onClick={startNewChat}
+                  className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium text-ink/50 transition hover:bg-white hover:text-ink"
+                >
+                  <Plus className="h-3.5 w-3.5" strokeWidth={2} /> New chat
+                </button>
                 <button
                   onClick={clearCurrentChat}
                   className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium text-ink/50 transition hover:bg-white hover:text-ink"

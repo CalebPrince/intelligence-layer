@@ -88,6 +88,16 @@ export interface ChatHistory {
   turns: ChatHistoryTurn[];
 }
 
+export interface ConversationSummary {
+  id: string;
+  title: string;
+  created_at: string;
+  agent_key?: string | null;
+  turn_count: number;
+  last_prompt?: string | null;
+  last_at?: string | null;
+}
+
 export interface ChatResponse {
   conversation_id: string;
   message_id: string;

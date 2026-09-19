@@ -182,9 +182,15 @@ async def list_conversations(project_id: str) -> list[dict]:
     return database.list_conversations(project_id)
 
 
+@router.post("/projects/{project_id}/chat/conversations", status_code=201)
+async def create_chat_conversation(project_id: str) -> dict[str, str]:
+    conversation = database.create_conversation(project_id)
+    return {"conversation_id": conversation["id"]}
+
+
 @router.delete("/projects/{project_id}/chat", status_code=204)
-async def clear_chat(project_id: str) -> None:
-    database.delete_latest_conversation(project_id)
+async def clear_chat(project_id: str, conversation_id: str | None = None) -> None:
+    database.delete_conversation(project_id, conversation_id)
 
 
 @router.get("/projects/{project_id}/chat/history", response_model=ChatHistory)

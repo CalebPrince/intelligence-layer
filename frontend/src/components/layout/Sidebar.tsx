@@ -61,7 +61,7 @@ const WORKSPACE_NAV: { href: string; label: string; icon: LucideIcon; projectSco
 // Model rows are grouped per provider (the registry can hold several models
 // per provider); "Online" if any model of that provider is active.
 const PROVIDERS = [
-  { provider: "openai", label: "GPT" },
+  { provider: "openai", label: "ChatGPT" },
   { provider: "anthropic", label: "Claude" },
   { provider: "gemini", label: "Gemini" },
 ];

@@ -37,7 +37,7 @@ const CARD = "rounded-2xl border border-ink/[0.07] bg-white shadow-[0_1px_2px_rg
 
 // bar colours per provider — literal classes so Tailwind's static scan finds them
 const MODEL_ROWS = [
-  { provider: "openai", label: "GPT", bar: "bg-[#12A150]" },
+  { provider: "openai", label: "ChatGPT", bar: "bg-[#12A150]" },
   { provider: "anthropic", label: "Claude", bar: "bg-[#F08A5D]" },
   { provider: "gemini", label: "Gemini", bar: "bg-[#8B5CF6]" },
 ];
@@ -163,7 +163,7 @@ function OverviewInner() {
     setMilestoneError(null);
     try {
       await updateMilestone(projectId, milestone.id, { is_done: true });
-      setMilestone(null);
+      setMilestone(await getNextMilestone(projectId)); // advance immediately instead of waiting for the next 15s poll
     } catch (error) {
       setMilestoneError(error instanceof Error ? error.message : "Could not complete the milestone");
     } finally {

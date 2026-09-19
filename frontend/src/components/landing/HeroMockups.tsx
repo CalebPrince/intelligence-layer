@@ -23,7 +23,7 @@ const AGENTS = [
 
 const PERSPECTIVES = [
   { provider: "anthropic", name: "Claude", body: "Overall the implementation is solid. A few security improvements recommended." },
-  { provider: "openai", name: "GPT", body: "Good structure. I'd recommend rotating refresh tokens and adding additional logging." },
+  { provider: "openai", name: "ChatGPT", body: "Good structure. I'd recommend rotating refresh tokens and adding additional logging." },
   { provider: "gemini", name: "Gemini", body: "Looks good for production with minor changes. Consider rate limiting and monitoring." },
 ];
 
@@ -124,8 +124,8 @@ function Laptop() {
 
             <div className="mt-auto flex items-center gap-1.5 rounded-lg border border-ink/10 bg-white px-2 py-1.5">
               <span className="flex-1 text-[7px] text-ink/40">Ask anything about your project...</span>
-              {["Auto", "GPT", "Claude", "Gemini", "Parallel"].map((c, i) => (
-                <span key={c} className={`rounded-full px-1.5 py-0.5 text-[6px] ${i === 0 ? "bg-blue-50 text-blue-600" : "text-ink/50"}`}>
+                {["Auto", "ChatGPT", "Claude", "Gemini", "Parallel"].map((c, i) => (
+                  <span key={c} className={`rounded-full px-1.5 py-0.5 text-[6px] ${i === 0 ? "bg-blue-50 text-blue-600" : "text-ink/50"}`}>
                   {c}
                 </span>
               ))}
