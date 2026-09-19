@@ -476,12 +476,21 @@ export async function agentChat(
   message: string,
   transcript: { role: "user" | "agent"; text: string }[],
   conversationId?: string,
-  memoryKey?: string
+  memoryKey?: string,
+  ownerId?: string
 ): Promise<AgentChatResult> {
   const res = await fetch(`${BASE}/v1/agents/admin/chat`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ project_id: projectId, agent_key: agentKey, message, transcript, conversation_id: conversationId, memory_key: memoryKey }),
+    body: JSON.stringify({
+      project_id: projectId,
+      owner_id: ownerId,
+      agent_key: agentKey,
+      message,
+      transcript,
+      conversation_id: conversationId,
+      memory_key: memoryKey,
+    }),
   });
   if (!res.ok) throw new Error(await readError(res, "Agent could not be reached"));
   return res.json();

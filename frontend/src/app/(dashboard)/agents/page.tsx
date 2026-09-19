@@ -412,7 +412,8 @@ function AgentChatModal({ agent, projectId, onClose }: { agent: AgentCard; proje
         message,
         [],
         conversationId,
-        SHARED_MEMORY_KEY
+        SHARED_MEMORY_KEY,
+        DEMO_OWNER_ID
       );
       setConversationId(result.conversation_id);
       setTurns((prev) => [...prev, { id: result.message_id, prompt: message, reply: result.reply, responseId: result.response_id }]);

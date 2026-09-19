@@ -3,6 +3,7 @@ from typing import Any, Optional
 
 import httpx
 
+from app import database
 from app.config import get_settings
 
 
@@ -10,13 +11,16 @@ class AgentError(Exception):
     """Raised with a safe message for the frontend."""
 
 
-def chat(agent_key: str, message: str, transcript: list[dict[str, str]]) -> dict[str, Any]:
+def chat(owner_id: str, agent_key: str, message: str, transcript: list[dict[str, str]]) -> dict[str, Any]:
     settings = get_settings()
-    token = settings.prince_web_app_admin_token.strip()
+    saved = database.get_integration_credential(owner_id, "prince_web_app")
+    credential = saved["credential"] if saved else {}
+    token = str(credential.get("admin_token") or settings.prince_web_app_admin_token).strip()
     if not token:
         raise AgentError("Admin agent access is not configured yet.")
 
-    url = f"{settings.prince_web_app_url}/api/v1/admin/agents/{agent_key}/chat"
+    base_url = str(credential.get("web_app_url") or settings.prince_web_app_url).strip().rstrip("/")
+    url = f"{base_url}/api/v1/admin/agents/{agent_key}/chat"
     try:
         response = httpx.post(
             url,

@@ -121,7 +121,7 @@ async def admin_agent_chat(req: AgentChatRequest) -> dict:
         transcript = database.get_shared_agent_memory(req.memory_key or req.project_id, req.agent_key)
         if not transcript:
             transcript = database.build_agent_transcript(conversation["id"], reply_role="agent")
-        result = await run_in_threadpool(agent_client.chat, req.agent_key, message, transcript)
+        result = await run_in_threadpool(agent_client.chat, req.owner_id, req.agent_key, message, transcript)
     except agent_client.AgentError as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc
     user_message = database.save_message(conversation["id"], ChatMessage(role="user", content=message))

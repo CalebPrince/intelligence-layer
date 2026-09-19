@@ -482,6 +482,7 @@ class SageChatResponse(BaseModel):
 
 class AgentChatRequest(BaseModel):
     project_id: str
+    owner_id: str = "00000000-0000-0000-0000-000000000000"
     agent_key: str
     message: str
     transcript: list[dict[str, str]] = []
