@@ -19,7 +19,7 @@ import { ChatContextPanel } from "@/components/chat/ChatContextPanel";
 import { ProjectIntelligence } from "@/components/chat/ProjectIntelligence";
 import { formatTime, providerLabel, resolvedContent, type Turn } from "@/components/chat/turn";
 import { LogoMark, ProviderLogo } from "@/components/landing/Marks";
-import { approveGitHubProposal, clearChat, createChatConversation, createGitHubProposal, createProject, getChatHistory, getProject, listModels, recordDecision, rejectGitHubProposal, sendChat } from "@/lib/api";
+import { approveGitHubProposal, clearChat, createChatConversation, createGitHubProposal, createProject, createProjectSkill, getChatHistory, getProject, listModels, recordDecision, rejectGitHubProposal, sendChat } from "@/lib/api";
 import { AGENTS } from "@/lib/agents";
 import type { Capability, ChatMessage, ChatResponse, GitHubActionMode, GitHubFileChange, GitHubActionProposal, ModelSpec, Project, RoutingMode } from "@/types";
 
@@ -43,6 +43,38 @@ function selectionToCriteria(sel: Selection): { mode: RoutingMode; explicitModel
 
 function isFileCreationRequest(text: string): boolean {
   return /\b(create|build|implement|add|generate|scaffold|make)\b[\s\S]*\b(file|page|component|feature|app|project|api|route|endpoint|form|screen)\b/i.test(text);
+}
+
+function skillCreationRequest(text: string): { name: string; description: string; instructions: string } | null {
+  const match = text.match(/\b(?:create|make|build)\s+(?:a\s+)?skill\s+(?:for|to|that)\s+(.+)/i);
+  if (!match) return null;
+  const brief = match[1].replace(/[.!?]+$/, "").trim();
+  if (!brief) return null;
+  const name = brief
+    .replace(/^(designing|design|creating|create|making|make)\s+/i, "")
+    .replace(/\b(for|the|a|an|website|websites)\b/gi, " ")
+    .trim()
+    .split(/\s+/)
+    .slice(0, 4)
+    .join("-")
+    .replace(/[^a-z0-9-]/gi, "") || "project-skill";
+  return {
+    name: name.toLowerCase(),
+    description: `Reusable skill for ${brief}.`,
+    instructions: `When invoked, help with ${brief}. Use the project's context as the source of truth. Explain important decisions, provide concrete recommendations, and return implementation-ready output when the user asks for code or design.`,
+  };
+}
+
+function extractSkillProposal(content: string | undefined): { name: string; description: string; instructions: string } | undefined {
+  const match = (content ?? "").match(/<skill-proposal>\s*([\s\S]*?)\s*<\/skill-proposal>/i);
+  if (!match) return undefined;
+  try {
+    const value = JSON.parse(match[1]) as Partial<{ name: string; description: string; instructions: string }>;
+    if (value.name && value.description && value.instructions) return { name: value.name, description: value.description, instructions: value.instructions };
+  } catch {
+    return undefined;
+  }
+  return undefined;
 }
 
 function addressedProviders(text: string): string[] {
@@ -346,6 +378,8 @@ function ChatPageInner() {
     setTurns((prev) => [...prev, { id: turnId, prompt: text, sentAt: new Date().toISOString(), loading: true, compareOpen: true }]);
     setPrompt("");
 
+    const newSkill = skillCreationRequest(text);
+
     let mode: RoutingMode = "parallel";
     let explicitModels: string[] | undefined;
     const addressed = addressedProviders(text);
@@ -367,6 +401,7 @@ function ChatPageInner() {
         conversationId,
         messages: [
           ...history,
+          ...(newSkill ? [{ role: "system" as const, content: `Draft a skill proposal for this request. Do not save it yet. Include a concise explanation, then include exactly one machine-readable block in this format: <skill-proposal>{"name":"short-slug","description":"what it does","instructions":"complete reusable instructions"}</skill-proposal>` }] : []),
           ...(fileRequest ? [{ role: "system" as const, content: FILE_PROPOSAL_INSTRUCTION }] : []),
           { role: "user", content: text },
         ],
@@ -384,6 +419,8 @@ function ChatPageInner() {
                 loading: false,
                 repliedAt: new Date().toISOString(),
                 response,
+                skillProposal: newSkill ? extractSkillProposal(response.responses.find((item) => item.success)?.content) : undefined,
+                skillProposalStatus: newSkill ? "pending" : undefined,
                 chosenResponseId: response.chosen_model_id
                   ? response.responses.find((r) => r.model_id === response.chosen_model_id)?.id
                   : undefined,
@@ -420,6 +457,20 @@ function ChatPageInner() {
     } catch {
       // background signal for future routing: a failure here should not block the UI
     }
+  }
+
+  async function approveSkill(turnId: string, proposal: NonNullable<Turn["skillProposal"]>) {
+    if (!projectId) return;
+    try {
+      await createProjectSkill(projectId, { ...proposal, tool_names: [], is_enabled: true });
+      setTurns((prev) => prev.map((turn) => turn.id === turnId ? { ...turn, skillProposalStatus: "added" } : turn));
+    } catch (error) {
+      setTurns((prev) => prev.map((turn) => turn.id === turnId ? { ...turn, error: error instanceof Error ? error.message : "Could not add that skill" } : turn));
+    }
+  }
+
+  function rejectSkill(turnId: string) {
+    setTurns((prev) => prev.map((turn) => turn.id === turnId ? { ...turn, skillProposalStatus: "rejected" } : turn));
   }
 
   function toggleCards(turnId: string) {
@@ -551,6 +602,10 @@ function ChatPageInner() {
                       Ask anything about {project?.name ?? "this project"}. Your question goes to the models you pick below, with this
                       project&apos;s context attached, and you can compare their answers and save the one you act on as a decision.
                     </p>
+                    <div className="mt-4 rounded-xl border border-blue-100 bg-blue-50/60 p-3 text-[13px] leading-relaxed text-ink/65">
+                      <p><span className="font-semibold text-ink/80">Create a skill:</span> “I want to create a skill for designing buttons for the website.”</p>
+                      <p className="mt-1"><span className="font-semibold text-ink/80">Call it later:</span> type <code className="rounded bg-white px-1.5 py-0.5 font-mono text-xs text-blue-700">/button-design</code> at the start of your message.</p>
+                    </div>
                   </div>
                 </div>
               )
@@ -585,6 +640,18 @@ function ChatPageInner() {
                     )}
                   </div>
                   {turn.response && <GitHubProposalPanel projectId={projectId} content={resolvedContent(turn) ?? ""} />}
+                  {turn.skillProposal && (
+                    <div className="rounded-xl border border-blue-200 bg-blue-50/70 p-4">
+                      <p className="text-sm font-semibold text-blue-950">Skill proposal: /{turn.skillProposal.name}</p>
+                      <p className="mt-1 text-xs leading-relaxed text-blue-900/70">{turn.skillProposal.description}</p>
+                      {turn.skillProposalStatus === "pending" ? (
+                        <div className="mt-3 flex gap-2">
+                          <button onClick={() => approveSkill(turn.id, turn.skillProposal!)} className="rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-blue-700">Add to skills</button>
+                          <button onClick={() => rejectSkill(turn.id)} className="rounded-lg border border-blue-200 bg-white px-3 py-1.5 text-xs font-medium text-blue-800">Reject</button>
+                        </div>
+                      ) : <p className="mt-2 text-xs font-medium text-blue-800">{turn.skillProposalStatus === "added" ? "Added to project skills. Invoke it with /" + turn.skillProposal.name : "Skill proposal rejected."}</p>}
+                    </div>
+                  )}
                 </div>
               ))
             )}

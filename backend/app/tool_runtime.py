@@ -20,9 +20,16 @@ class RuntimeTool:
 
 def select_skills(project_id: str, query: str, limit: int = 4) -> list[dict[str, Any]]:
     """Cheap progressive disclosure: select skill instructions by word overlap."""
+    skills = database.list_project_skills(project_id, enabled_only=True)
+    slash = re.match(r"^\s*/([a-z0-9][a-z0-9_-]*)\b", query.lower())
+    if slash:
+        command = slash.group(1)
+        exact = [skill for skill in skills if skill["name"].lower().replace(" ", "-") == command]
+        if exact:
+            return exact[:1]
     words = set(re.findall(r"[a-z0-9_-]{3,}", query.lower()))
     ranked = []
-    for skill in database.list_project_skills(project_id, enabled_only=True):
+    for skill in skills:
         summary = f'{skill["name"]} {skill["description"]}'.lower()
         score = sum(1 for word in words if word in summary)
         if score or skill["name"].lower() in query.lower():

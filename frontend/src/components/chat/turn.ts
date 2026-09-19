@@ -10,6 +10,8 @@ export interface Turn {
   compareOpen: boolean; // model cards visible
   loading: boolean;
   error?: string;
+  skillProposal?: { name: string; description: string; instructions: string };
+  skillProposalStatus?: "pending" | "added" | "rejected";
 }
 
 export const PROVIDER_LABEL: Record<string, string> = {
