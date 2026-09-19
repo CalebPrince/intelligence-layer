@@ -132,7 +132,7 @@ export function Sidebar() {
       <Link href="/" className="flex items-center gap-3 px-5 pb-5 pt-5">
         <LogoMark className="h-9 w-9 shrink-0" />
         <div className="min-w-0">
-          <p className="truncate font-display text-[15px] font-bold leading-tight">Intelligence Layer</p>
+          <p className="truncate font-display text-[15px] font-bold leading-tight">Inteli-Space</p>
           <p className="truncate text-[11px] leading-tight text-white/50">Your projects. All models. One mind.</p>
         </div>
       </Link>

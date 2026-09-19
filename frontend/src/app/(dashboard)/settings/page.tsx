@@ -160,7 +160,7 @@ export default function SettingsPage() {
         <PageHero
           eyebrow="Settings"
           title="Settings"
-          description="Customize your workspace, manage your account and configure how the Intelligence Layer works for you."
+          description="Customize your workspace, manage your account and configure how Inteli-Space works for you."
           icon={<SettingsIcon className="h-7 w-7" strokeWidth={1.75} />}
           bannerTitle={
             <>

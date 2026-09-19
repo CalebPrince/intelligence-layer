@@ -90,7 +90,7 @@ export default function Home() {
         <nav className="mx-auto flex max-w-7xl items-center justify-between px-6 py-5">
           <Link href="/" className="flex items-center gap-2.5">
             <LogoMark className="h-8 w-8" />
-            <span className="font-display text-lg font-bold tracking-tight">Intelligence Layer</span>
+            <span className="font-display text-lg font-bold tracking-tight">Inteli-Space</span>
           </Link>
           <div className="hidden items-center gap-8 text-[13px] text-ink/70 lg:flex">
             {NAV_LINKS.map((l) => (
@@ -154,7 +154,7 @@ export default function Home() {
       {/* features */}
       <section id="features" className="mx-auto max-w-7xl px-6 pb-8 pt-20">
         <div className="text-center">
-          <Pill>Why Intelligence Layer</Pill>
+            <Pill>Why Inteli-Space</Pill>
           <h2 className="mt-5 font-display text-4xl font-extrabold tracking-[-0.025em] sm:text-[44px]">
             A better way to <span className="text-brand">work with AI</span>
           </h2>
@@ -188,7 +188,7 @@ export default function Home() {
               <span className="text-brand">to progress.</span>
             </h2>
             <p className="mt-6 max-w-md text-[17px] leading-relaxed text-ink/60">
-              Whether you&apos;re building, researching or making decisions, Intelligence Layer helps
+              Whether you&apos;re building, researching or making decisions, Inteli-Space helps
               you move from ideas to action, faster and with more confidence.
             </p>
           </div>

@@ -24,7 +24,7 @@ const hand = Caveat({
 });
 
 export const metadata: Metadata = {
-  title: "Intelligence Layer",
+  title: "Inteli-Space",
   description: "One project, routed across multiple model perspectives.",
 };
 

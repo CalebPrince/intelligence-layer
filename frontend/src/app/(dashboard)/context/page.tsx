@@ -406,7 +406,7 @@ function ContextInner() {
               Project <span className="text-brand">Context</span>
             </h1>
             <p className="mt-3 max-w-[640px] text-[17px] leading-snug text-ink/60">
-              Your knowledge, in one place. Add files, links, notes and conversations. The Intelligence Layer keeps context across all
+              Your knowledge, in one place. Add files, links, notes and conversations. Inteli-Space keeps context across all
               models, so you get better, more relevant results.
             </p>
           </div>

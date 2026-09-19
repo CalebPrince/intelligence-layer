@@ -36,7 +36,7 @@ function Laptop() {
           {/* sidebar */}
           <div className="hidden w-[118px] shrink-0 flex-col bg-[#0F1424] p-3 text-white/70 sm:flex">
             <div className="flex items-center gap-1.5 text-[8px] font-semibold text-white">
-              <LogoMark className="h-3.5 w-3.5 shrink-0" /> Intelligence Layer
+              <LogoMark className="h-3.5 w-3.5 shrink-0" /> Inteli-Space
             </div>
             <ul className="mt-3 space-y-0.5">
               {NAV.map((n, i) => (

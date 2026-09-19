@@ -347,7 +347,7 @@ export default function AgentsPage() {
                 <div>
                   <p className="font-display text-[15px] font-bold">More capable together.</p>
                   <p className="mt-1 text-[13px] leading-snug text-ink/60">
-                    Your agents can collaborate, share context and use any model from the Intelligence Layer.
+                    Your agents can collaborate, share context and use any model from Inteli-Space.
                   </p>
                 </div>
               </div>
