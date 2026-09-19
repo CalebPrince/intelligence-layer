@@ -1,39 +1,38 @@
-import { ArrowRight, Check, ChevronDown, FileText, FolderOpen, MessageSquare, Users } from "lucide-react";
+import { ArrowRight, Brain, Check, ChevronDown, CircleDot, FileText, FolderOpen, GitBranch, MessageSquare, Network, ShieldCheck, Sparkles, Users } from "lucide-react";
 import Link from "next/link";
 import HeroMockups from "@/components/landing/HeroMockups";
 import { LogoMark, Note, ProviderLogo } from "@/components/landing/Marks";
 
 const NAV_LINKS = [
-  { label: "Features", href: "#features" },
-  { label: "How it works", href: "#how-it-works" },
-  { label: "Use cases", href: "#use-cases" },
-  { label: "Pricing", href: "#get-started" },
+  { label: "The layer", href: "#layer" },
+  { label: "Workflows", href: "#workflows" },
+  { label: "Roadmap", href: "#roadmap" },
 ];
 
 const FEATURES = [
   {
     icon: <MessageSquare className="h-5 w-5" strokeWidth={2} />,
     tone: "bg-emerald-100 text-emerald-600",
-    title: "Multi-model intelligence",
-    body: "Get the best answer from Claude, ChatGPT, Gemini and more, automatically or on demand.",
+    title: "Route the question",
+    body: "Ask Claude, ChatGPT and Gemini together, or direct a question to exactly one model by name.",
   },
   {
     icon: <FolderOpen className="h-5 w-5" strokeWidth={2} />,
     tone: "bg-blue-100 text-blue-600",
-    title: "Project-aware",
-    body: "Connect your files, code, docs and tools for deeper, more relevant answers.",
+    title: "Own the context",
+    body: "Your files, GitHub repositories, notes and decisions become a working knowledge layer.",
   },
   {
     icon: <CheckRing className="h-5 w-5" />,
     tone: "bg-orange-100 text-orange-500",
-    title: "Turn chat into decisions",
-    body: "Save, organize and revisit key decisions with full context.",
+    title: "Keep the decision",
+    body: "Accept the answer you acted on and keep its reasoning connected to the project.",
   },
   {
     icon: <Users className="h-5 w-5" strokeWidth={2} />,
     tone: "bg-blue-100 text-blue-600",
-    title: "Built for individuals and teams",
-    body: "Collaborate, share context and move faster together.",
+    title: "Bring in the agents",
+    body: "Real princecaleb.dev agents continue their roles with shared memory and project history.",
   },
 ];
 
@@ -41,26 +40,26 @@ const STEPS = [
   {
     icon: <FileText className="h-5 w-5" strokeWidth={2} />,
     tone: "bg-blue-100 text-blue-600",
-    title: "Connect your project",
-    body: "Link your files, docs and tools",
+    title: "Connect the source",
+    body: "Import GitHub, docs, notes and links into one project library",
   },
   {
     icon: <ProviderLogo provider="openai" className="h-6 w-6" />,
     tone: "bg-emerald-100",
-    title: "Ask anything",
-    body: "Get insights from multiple models",
+    title: "Route the work",
+    body: "Use model perspectives or address Claude, ChatGPT or Gemini directly",
   },
   {
     icon: <ProviderLogo provider="gemini" className="h-6 w-6" />,
     tone: "bg-violet-100",
-    title: "Compare perspectives",
-    body: "See different views and trade-offs",
+    title: "Make the call",
+    body: "Compare answers, save a decision and keep the thread findable",
   },
   {
     icon: <CheckRing className="h-5 w-5" />,
     tone: "bg-orange-100 text-orange-500",
-    title: "Save as a decision",
-    body: "Keep track and move forward",
+    title: "Carry it forward",
+    body: "Agents and future chats inherit the context that matters",
   },
 ];
 
@@ -84,7 +83,7 @@ function Pill({ children }: { children: React.ReactNode }) {
 
 export default function Home() {
   return (
-    <main className="min-h-screen overflow-x-clip bg-white">
+    <main className="min-h-screen overflow-x-clip bg-paper">
       {/* nav + hero share a soft green wash, like the concept art */}
       <div className="relative bg-[radial-gradient(60%_50%_at_85%_10%,#E3F4EA_0%,transparent_70%),radial-gradient(40%_40%_at_0%_0%,#F1F8F3_0%,transparent_70%)]">
         <nav className="mx-auto flex max-w-7xl items-center justify-between px-6 py-5">
@@ -118,22 +117,21 @@ export default function Home() {
         {/* hero */}
         <section className="mx-auto grid max-w-7xl grid-cols-1 items-center gap-12 px-6 pb-24 pt-10 lg:grid-cols-[1fr_1.15fr] lg:pt-14">
           <div>
-            <Pill>One workspace. All leading AI models.</Pill>
+            <Pill>Your project, with memory</Pill>
             <h1 className="mt-6 font-display text-[44px] font-extrabold leading-[1.02] tracking-[-0.03em] sm:text-6xl">
-              Your projects.
+              Stop starting
               <br />
-              <span className="text-brand">All models.</span>
+              <span className="text-brand">from zero.</span>
             </h1>
             <p className="mt-6 max-w-md text-[17px] leading-relaxed text-ink/60">
-              Connect Claude, ChatGPT, and Gemini (and more) to work together on your projects. Get
-              better answers, make faster decisions, and keep everything in one place.
+              Inteli-Space gives every model and agent the same living picture of your project, so the next answer starts where the last decision ended.
             </p>
             <div className="mt-8">
               <Link
                 href="/dashboard"
                 className="inline-flex items-center gap-2.5 rounded-xl bg-ink px-6 py-3.5 text-sm font-semibold text-white transition hover:bg-ink/85"
               >
-                Get started free <ArrowRight className="h-4 w-4" strokeWidth={2.25} />
+                Enter your workspace <ArrowRight className="h-4 w-4" strokeWidth={2.25} />
               </Link>
             </div>
             <div className="mt-7 flex flex-wrap gap-x-6 gap-y-2 text-[13px] text-ink/60">
@@ -181,15 +179,14 @@ export default function Home() {
       >
         <div id="use-cases" className="mx-auto grid max-w-7xl grid-cols-1 items-center gap-12 px-6 py-24 lg:grid-cols-[0.9fr_1.1fr]">
           <div>
-            <Pill>See it in action</Pill>
+            <Pill>A working loop</Pill>
             <h2 className="mt-5 font-display text-4xl font-extrabold leading-[1.05] tracking-[-0.03em] sm:text-[52px]">
               From questions
               <br />
-              <span className="text-brand">to progress.</span>
+              <span className="text-brand">to decisions.</span>
             </h2>
             <p className="mt-6 max-w-md text-[17px] leading-relaxed text-ink/60">
-              Whether you&apos;re building, researching or making decisions, Inteli-Space helps
-              you move from ideas to action, faster and with more confidence.
+              Bring in the source, ask the room, choose what matters, and let the next conversation inherit the work.
             </p>
           </div>
 
@@ -226,6 +223,29 @@ export default function Home() {
         </div>
       </section>
 
+      <section id="roadmap" className="mx-auto max-w-7xl px-6 py-24">
+        <div className="flex flex-col justify-between gap-8 md:flex-row md:items-end">
+          <div className="max-w-xl">
+            <Pill>What&apos;s next</Pill>
+            <h2 className="mt-5 font-display text-4xl font-extrabold tracking-[-0.035em] sm:text-5xl">The workspace keeps getting more useful.</h2>
+          </div>
+          <p className="max-w-sm text-[15px] leading-relaxed text-ink/55">The foundation is live today. The next layer makes the intelligence easier to inspect, delegate and trust.</p>
+        </div>
+        <div className="mt-12 grid gap-4 md:grid-cols-3">
+          {[
+            { icon: <Network className="h-5 w-5" />, title: "Agent workspace", body: "More of the real princecaleb.dev team, with persistent memory and roles that stay true across apps.", tone: "bg-blue-100 text-blue-600" },
+            { icon: <ShieldCheck className="h-5 w-5" />, title: "Outcome-aware routing", body: "Move beyond accepted answers and learn which decisions actually worked for the project.", tone: "bg-emerald-100 text-emerald-600" },
+            { icon: <GitBranch className="h-5 w-5" />, title: "Safer project changes", body: "Review proposed file changes, keep context synced, and make the path from answer to branch explicit.", tone: "bg-orange-100 text-orange-600" },
+          ].map(({ icon, title, body, tone }) => (
+            <div key={title} className="rounded-2xl border border-ink/[0.08] bg-white p-6 shadow-[0_8px_25px_-20px_rgba(11,14,20,0.4)]">
+              <span className={`flex h-11 w-11 items-center justify-center rounded-xl ${tone}`}>{icon}</span>
+              <h3 className="mt-5 font-display text-lg font-bold">{title}</h3>
+              <p className="mt-2 text-[15px] leading-relaxed text-ink/55">{body}</p>
+            </div>
+          ))}
+        </div>
+      </section>
+
       {/* bottom cta */}
       <section id="get-started" className="relative overflow-hidden bg-brand-deep px-6 pb-40 pt-24 text-white">
         <svg
@@ -240,17 +260,17 @@ export default function Home() {
           <path d="M0 150C160 40 340 30 520 110s360 100 520 20 300-70 400-30" stroke="#3DDC84" strokeOpacity="0.3" />
         </svg>
         <div className="relative mx-auto max-w-4xl text-center">
-          <p className="text-xs font-medium uppercase tracking-[0.2em] text-white/60">Ready to build smarter?</p>
+          <p className="text-xs font-medium uppercase tracking-[0.2em] text-white/60">Your next answer should remember the last one.</p>
           <h2 className="mt-4 font-display text-3xl font-extrabold tracking-[-0.025em] sm:text-5xl">
-            Your projects. <span className="text-[#3DDC84]">All models.</span> One place.
+            Your projects. <span className="text-[#3DDC84]">All models.</span> One living context.
           </h2>
-          <p className="mt-4 text-base text-white/70">Start for free. No credit card required.</p>
+          <p className="mt-4 text-base text-white/70">Open the workspace and bring one project into focus.</p>
           <div className="mt-9">
             <Link
               href="/dashboard"
               className="inline-flex items-center gap-2.5 rounded-xl bg-white px-7 py-3.5 text-sm font-semibold text-ink transition hover:bg-white/90"
             >
-              Get started free <ArrowRight className="h-4 w-4" strokeWidth={2.25} />
+              Open your workspace <ArrowRight className="h-4 w-4" strokeWidth={2.25} />
             </Link>
           </div>
         </div>
