@@ -173,17 +173,6 @@ CATALOG: dict[str, Integration] = {
             [Field("base_url", "Base URL", False), Field("header_name", "Auth header name", False), Field("header_value", "Auth header value")],
             _test_custom_api,
         ),
-        Integration(
-            "prince_web_app",
-            "Prince web app",
-            "Development",
-            [
-                Field("web_app_url", "Prince web app URL", False),
-                Field("admin_token", "Admin bearer token"),
-                Field("memory_token", "Shared memory token"),
-                Field("memory_key", "Shared memory key", False),
-            ],
-        ),
     ]
 }
 
