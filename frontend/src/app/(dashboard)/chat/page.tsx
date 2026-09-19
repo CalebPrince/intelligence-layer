@@ -189,7 +189,7 @@ function ChatPageInner() {
   const [speechSupported, setSpeechSupported] = useState(false);
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
 
-  const bottomRef = useRef<HTMLDivElement>(null);
+  const assistantStartRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
@@ -289,7 +289,7 @@ function ChatPageInner() {
   }, [useParam]);
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+    assistantStartRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   }, [turns]);
 
   const providerModel = useMemo(() => {
@@ -567,22 +567,23 @@ function ChatPageInner() {
                     </span>
                   </div>
 
-                  {(turnIndex === 0 && (turn.response?.responses.filter((response) => response.phase === "initial").length ?? 0) > 1) ? (
-                    <ProjectIntelligence
-                      turn={turn}
-                      taskLine={taskLine(turn)}
-                      onChoose={(id) => handleChoose(turn.id, id)}
-                      onDiscuss={() => textareaRef.current?.focus()}
-                      onToggleCards={() => toggleCards(turn.id)}
-                    />
-                  ) : (
-                    <AssistantBubbles turn={turn} />
-                  )}
+                  <div ref={turn.id === turns[turns.length - 1]?.id ? assistantStartRef : undefined}>
+                    {(turnIndex === 0 && (turn.response?.responses.filter((response) => response.phase === "initial").length ?? 0) > 1) ? (
+                      <ProjectIntelligence
+                        turn={turn}
+                        taskLine={taskLine(turn)}
+                        onChoose={(id) => handleChoose(turn.id, id)}
+                        onDiscuss={() => textareaRef.current?.focus()}
+                        onToggleCards={() => toggleCards(turn.id)}
+                      />
+                    ) : (
+                      <AssistantBubbles turn={turn} />
+                    )}
+                  </div>
                   {turn.response && <GitHubProposalPanel projectId={projectId} content={resolvedContent(turn) ?? ""} />}
                 </div>
               ))
             )}
-            <div ref={bottomRef} />
           </div>
         </div>
 
