@@ -7,6 +7,7 @@ import httpx
 
 API = "https://api.github.com"
 MAX_FILE_BYTES = 500_000
+ON_DEMAND_MAX_FILE_BYTES = 5_000_000
 MAX_FILES = 250
 SKIP_PARTS = {".git", "node_modules", ".next", "dist", "build", "vendor", "coverage"}
 TEXT_EXTENSIONS = {
@@ -87,6 +88,30 @@ def list_text_files(token: str, owner: str, name: str, branch: str) -> list[tupl
         if len(files) >= MAX_FILES:
             break
     return files
+
+
+def list_skipped_text_files(token: str, owner: str, name: str, branch: str) -> list[tuple[str, int]]:
+    tree = _request(token, f"/repos/{owner}/{name}/git/trees/{branch}", {"recursive": "1"})
+    entries = tree.get("tree", []) if isinstance(tree, dict) else []
+    skipped: list[tuple[str, int]] = []
+    for entry in entries:
+        path = str(entry.get("path", ""))
+        size = int(entry.get("size", 0) or 0)
+        suffix = "." + path.rsplit(".", 1)[-1].lower() if "." in path.rsplit("/", 1)[-1] else ""
+        if entry.get("type") == "blob" and size > MAX_FILE_BYTES and size <= ON_DEMAND_MAX_FILE_BYTES and suffix in TEXT_EXTENSIONS and not (set(path.split("/")) & SKIP_PARTS):
+            skipped.append((path, size))
+    return skipped
+
+
+def get_file(token: str, owner: str, name: str, path: str, branch: str) -> str:
+    data = _request(token, f"/repos/{owner}/{name}/contents/{path}", {"ref": branch})
+    size = int(data.get("size", 0) or 0)
+    if size > ON_DEMAND_MAX_FILE_BYTES:
+        raise GitHubError("That file is larger than the 5 MB on-demand limit")
+    try:
+        return base64.b64decode(data.get("content", "")).decode("utf-8", errors="replace")
+    except (ValueError, UnicodeError) as exc:
+        raise GitHubError("GitHub returned a file that cannot be read as text") from exc
 
 
 def authorization_url(client_id: str, redirect_uri: str, state: str) -> str:
