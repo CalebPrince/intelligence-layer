@@ -19,7 +19,7 @@ import { ChatContextPanel } from "@/components/chat/ChatContextPanel";
 import { ProjectIntelligence } from "@/components/chat/ProjectIntelligence";
 import { formatTime, providerLabel, resolvedContent, type Turn } from "@/components/chat/turn";
 import { LogoMark, ProviderLogo } from "@/components/landing/Marks";
-import { approveGitHubProposal, clearChat, createChatConversation, createGitHubProposal, createProject, getChatHistory, getProject, listConversations, listModels, recordDecision, rejectGitHubProposal, sendChat } from "@/lib/api";
+import { approveGitHubProposal, clearChat, createChatConversation, createGitHubProposal, createProject, getChatHistory, getProject, listModels, recordDecision, rejectGitHubProposal, sendChat } from "@/lib/api";
 import { AGENTS } from "@/lib/agents";
 import type { Capability, ChatMessage, ChatResponse, GitHubActionMode, GitHubFileChange, GitHubActionProposal, ModelSpec, Project, RoutingMode } from "@/types";
 
@@ -174,7 +174,6 @@ function ChatPageInner() {
   const [project, setProject] = useState<Project | null>(null);
   const [provisioning, setProvisioning] = useState(!projectIdParam);
   const [conversationId, setConversationId] = useState<string | undefined>();
-  const [recentChats, setRecentChats] = useState<Awaited<ReturnType<typeof listConversations>>>([]);
 
   const [turns, setTurns] = useState<Turn[]>([]);
   const [historyLoaded, setHistoryLoaded] = useState(false);
@@ -240,7 +239,6 @@ function ChatPageInner() {
     if (!projectId) return;
     let cancelled = false;
     setHistoryLoaded(false);
-    listConversations(projectId).then(setRecentChats).catch(() => setRecentChats([]));
     getChatHistory(projectId, conversationParam ?? undefined)
       .then((h) => {
         if (cancelled) return;
@@ -374,7 +372,6 @@ function ChatPageInner() {
         taskType,
       });
       setConversationId(response.conversation_id);
-      listConversations(projectId).then(setRecentChats).catch(() => {});
       setTurns((prev) =>
         prev.map((t) =>
           t.id === turnId
@@ -523,22 +520,6 @@ function ChatPageInner() {
           <div className="flex flex-col gap-5">
             {turns.length > 0 && (
               <div className="-mb-2 flex items-center justify-end gap-2">
-                <select
-                  value={conversationId ?? ""}
-                  onChange={(e) => {
-                    if (!e.target.value) return;
-                    const params = new URLSearchParams({ project: projectId, conversation: e.target.value });
-                    if (agentParam) params.set("agent", agentParam);
-                    router.push(`/chat?${params.toString()}`);
-                  }}
-                  className="max-w-[220px] rounded-lg border border-ink/10 bg-white px-2.5 py-1.5 text-xs text-ink/65 outline-none"
-                  aria-label="Recent chats"
-                >
-                  <option value="">Recent chats</option>
-                  {recentChats.map((chat) => (
-                    <option key={chat.id} value={chat.id}>{chat.last_prompt || chat.title}</option>
-                  ))}
-                </select>
                 <button
                   onClick={startNewChat}
                   className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium text-ink/50 transition hover:bg-white hover:text-ink"

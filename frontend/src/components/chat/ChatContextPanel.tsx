@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowRight, CheckCircle2, FileText, Loader2, RefreshCw, X } from "lucide-react";
+import { ArrowRight, CheckCircle2, FileText, Loader2, MessageSquare, RefreshCw, X } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
@@ -10,11 +10,12 @@ import {
   getProjectStats,
   listActivity,
   listContext,
+  listConversations,
   listDecisions,
   syncProject,
 } from "@/lib/api";
 import { SAMPLE_INTEGRATIONS, SAMPLE_TEAM } from "@/lib/sampleWorkspace";
-import type { ActivityItem, ContextItem, ContextStats, ContextType, ContextUsed, DecisionItem, Project, ProjectStats } from "@/types";
+import type { ActivityItem, ContextItem, ContextStats, ContextType, ContextUsed, ConversationSummary, DecisionItem, Project, ProjectStats } from "@/types";
 
 const CARD = "rounded-2xl border border-ink/[0.07] bg-white shadow-[0_1px_2px_rgba(11,14,20,0.03)]";
 const TYPES: ContextType[] = ["note", "document", "url", "file"];
@@ -77,6 +78,7 @@ export function ChatContextPanel({
   const [stats, setStats] = useState<ProjectStats | null>(null);
   const [decisions, setDecisions] = useState<DecisionItem[]>([]);
   const [activity, setActivity] = useState<ActivityItem[]>([]);
+  const [recentChats, setRecentChats] = useState<ConversationSummary[]>([]);
   const [usedPreview, setUsedPreview] = useState<ContextUsed[]>([]);
   const [usedPreviewStats, setUsedPreviewStats] = useState<ContextStats | null>(null);
   const [tab, setTab] = useState<Tab>("active");
@@ -98,13 +100,15 @@ export function ChatContextPanel({
       getProjectStats(projectId),
       listDecisions(projectId),
       listActivity(projectId),
+      listConversations(projectId),
       getContextUsed(projectId, lastPrompt),
     ])
-      .then(([c, s, d, a, u]) => {
+      .then(([c, s, d, a, chats, u]) => {
         setItems(c);
         setStats(s);
         setDecisions(d);
         setActivity(a);
+        setRecentChats(chats);
         setUsedPreview(u.items);
         setUsedPreviewStats(u.stats);
         setError(null);
@@ -306,21 +310,50 @@ export function ChatContextPanel({
         </div>
 
         {tab === "activity" ? (
-          activity.length === 0 ? (
+          recentChats.length === 0 && activity.length === 0 ? (
             <p className="py-6 text-sm text-ink/40">Nothing yet.</p>
           ) : (
-            <ul className="mt-2 divide-y divide-ink/[0.06]">
-              {activity.slice(0, 6).map((a) => (
-                <li key={`${a.kind}-${a.id}`} className="flex items-center gap-3 py-3">
-                  <FileText className="h-5 w-5 shrink-0 text-ink/45" strokeWidth={1.5} />
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-semibold">{a.label}</p>
-                    <p className="text-xs text-ink/50">{a.kind === "context" ? "Context added" : "Decision recorded"}</p>
-                  </div>
-                  <span className="shrink-0 text-xs text-ink/45">{timeAgo(a.ts)}</span>
-                </li>
-              ))}
-            </ul>
+            <div className="mt-3">
+              {recentChats.length > 0 && (
+                <>
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-ink/40">Recent chats</p>
+                  <ul className="mt-1 divide-y divide-ink/[0.06]">
+                    {recentChats.slice(0, 6).map((chat) => (
+                      <li key={chat.id}>
+                        <Link
+                          href={`/chat?project=${encodeURIComponent(projectId)}&conversation=${encodeURIComponent(chat.id)}`}
+                          className="flex items-center gap-3 py-3 transition hover:text-blue-600"
+                        >
+                          <MessageSquare className="h-5 w-5 shrink-0 text-ink/45" strokeWidth={1.5} />
+                          <div className="min-w-0 flex-1">
+                            <p className="truncate text-sm font-semibold">{chat.last_prompt || chat.title}</p>
+                            <p className="text-xs text-ink/50">{chat.turn_count} message{chat.turn_count === 1 ? "" : "s"}</p>
+                          </div>
+                          <span className="shrink-0 text-xs text-ink/45">{chat.last_at ? timeAgo(chat.last_at) : timeAgo(chat.created_at)}</span>
+                        </Link>
+                      </li>
+                    ))}
+                  </ul>
+                </>
+              )}
+              {activity.length > 0 && (
+                <>
+                  <p className="mt-4 text-[11px] font-semibold uppercase tracking-[0.12em] text-ink/40">Project activity</p>
+                  <ul className="mt-1 divide-y divide-ink/[0.06]">
+                    {activity.slice(0, 6).map((a) => (
+                      <li key={`${a.kind}-${a.id}`} className="flex items-center gap-3 py-3">
+                        <FileText className="h-5 w-5 shrink-0 text-ink/45" strokeWidth={1.5} />
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-sm font-semibold">{a.label}</p>
+                          <p className="text-xs text-ink/50">{a.kind === "context" ? "Context added" : "Decision recorded"}</p>
+                        </div>
+                        <span className="shrink-0 text-xs text-ink/45">{timeAgo(a.ts)}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </>
+              )}
+            </div>
           )
         ) : list.length === 0 ? (
           <p className="py-6 text-sm text-ink/45">
