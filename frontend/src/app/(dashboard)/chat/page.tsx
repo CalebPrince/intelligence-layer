@@ -41,6 +41,12 @@ function selectionToCriteria(sel: Selection): { mode: RoutingMode; explicitModel
   }
 }
 
+function isFileCreationRequest(text: string): boolean {
+  return /\b(create|build|implement|add|generate|scaffold|make)\b[\s\S]*\b(file|page|component|feature|app|project|api|route|endpoint|form|screen)\b/i.test(text);
+}
+
+const FILE_PROPOSAL_INSTRUCTION = `When this request asks you to create or modify project files, return a proposed file set for review. For each proposed file, use a fenced block whose first line is exactly FILE: relative/path.ext, followed by the complete file content. Do not claim files were written; they will be reviewed before a GitHub branch is created.`;
+
 function extractFileChanges(content: string): GitHubFileChange[] {
   const changes: GitHubFileChange[] = [];
   const pattern = /```[^\n]*\n(?:FILE|PATH):\s*([^\n]+)\n([\s\S]*?)```/gi;
@@ -327,12 +333,17 @@ function ChatPageInner() {
     setPrompt("");
 
     const { mode, explicitModels } = selectionToCriteria(selection);
+    const fileRequest = isFileCreationRequest(text);
 
     try {
       const response = await sendChat({
         projectId,
         conversationId,
-        messages: [...history, { role: "user", content: text }],
+        messages: [
+          ...history,
+          ...(fileRequest ? [{ role: "system" as const, content: FILE_PROPOSAL_INSTRUCTION }] : []),
+          { role: "user", content: text },
+        ],
         mode,
         explicitModels,
         capabilities,
