@@ -1,0 +1,13 @@
+{
+  "name": "model-agnostic-layer",
+  "version": "0.1.0",
+  "private": true,
+  "description": "One project, routed across multiple model perspectives.",
+  "scripts": {
+    "dev": "node scripts/dev.mjs",
+    "dev:backend": "cd backend && python -m uvicorn app.main:app --reload --port 8000",
+    "dev:frontend": "npm --prefix frontend run dev",
+    "install:all": "node scripts/install.mjs",
+    "build": "npm --prefix frontend run build"
+  }
+}
