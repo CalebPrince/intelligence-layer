@@ -392,6 +392,11 @@ export async function listGitHubRepositories(ownerId: string): Promise<GitHubRep
   return res.json();
 }
 
+export function getGitHubAuthorizationUrl(ownerId: string): string {
+  const origin = typeof window === "undefined" ? process.env.BACKEND_URL ?? "http://localhost:8000" : "/api/backend";
+  return `${origin}/v1/github/oauth/start?owner_id=${encodeURIComponent(ownerId)}`;
+}
+
 export async function importGitHubRepository(ownerId: string, owner: string, name: string): Promise<GitHubImportResult> {
   const res = await fetch(`${BASE}/v1/github/repositories/${encodeURIComponent(owner)}/${encodeURIComponent(name)}/import?owner_id=${encodeURIComponent(ownerId)}`, {
     method: "POST",

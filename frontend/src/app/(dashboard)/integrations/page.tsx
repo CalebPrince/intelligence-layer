@@ -19,7 +19,7 @@ import {
   Zap,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
-import { deleteIntegration, getCredits, getIntegrationCatalog, importGitHubRepository, listGitHubRepositories, listIntegrations, saveIntegration } from "@/lib/api";
+import { deleteIntegration, getCredits, getGitHubAuthorizationUrl, getIntegrationCatalog, importGitHubRepository, listGitHubRepositories, listIntegrations, saveIntegration } from "@/lib/api";
 import type { CreditSummary, GitHubRepository, IntegrationCatalogEntry, IntegrationCredential } from "@/types";
 
 const CARD = "rounded-2xl border border-ink/[0.07] bg-white shadow-[0_1px_2px_rgba(11,14,20,0.03)]";
@@ -117,6 +117,10 @@ export default function IntegrationsPage() {
     setSelectedService(entry);
     setCredentialValues({});
     setIntegrationMessage(null);
+  }
+
+  function authorizeGitHub() {
+    window.location.href = getGitHubAuthorizationUrl(DEMO_OWNER_ID);
   }
 
   async function submitIntegration() {
@@ -320,7 +324,7 @@ export default function IntegrationsPage() {
                       <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-blue-50 text-blue-600"><Plug className="h-[18px] w-[18px]" strokeWidth={1.75} /></span>
                       <p className="mt-2.5 text-sm font-semibold">{entry.name}</p>
                       <p className="mt-1 text-[13px] leading-snug text-ink/55">{entry.category} integration with {entry.fields.length} credential field{entry.fields.length === 1 ? "" : "s"}.</p>
-                      <button onClick={() => openIntegration(entry)} className="mt-3 w-full rounded-lg border border-ink/12 py-1.5 text-[13px] font-medium transition hover:border-ink/30">Connect</button>
+                      <button onClick={entry.key === "github" ? authorizeGitHub : () => openIntegration(entry)} className="mt-3 w-full rounded-lg border border-ink/12 py-1.5 text-[13px] font-medium transition hover:border-ink/30">{entry.key === "github" ? "Authorize GitHub" : "Connect"}</button>
                     </div>
                   ))}
                 </div>

@@ -1,5 +1,6 @@
 """Small GitHub API client for repository discovery and context import."""
 import base64
+import urllib.parse
 from typing import Any
 
 import httpx
@@ -54,3 +55,21 @@ def get_readme(token: str, owner: str, name: str) -> tuple[str, str] | None:
     if not content:
         return None
     return path, base64.b64decode(content).decode("utf-8", errors="replace")
+
+
+def authorization_url(client_id: str, redirect_uri: str, state: str) -> str:
+    query = urllib.parse.urlencode({"client_id": client_id, "redirect_uri": redirect_uri, "scope": "repo read:user", "state": state})
+    return f"https://github.com/login/oauth/authorize?{query}"
+
+
+def exchange_code(client_id: str, client_secret: str, code: str, redirect_uri: str) -> str:
+    try:
+        response = httpx.post("https://github.com/login/oauth/access_token", data={"client_id": client_id, "client_secret": client_secret, "code": code, "redirect_uri": redirect_uri}, headers={"Accept": "application/json"}, timeout=15.0)
+    except httpx.HTTPError as exc:
+        raise GitHubError(f"GitHub authorization failed: {exc}") from exc
+    if response.status_code >= 400:
+        raise GitHubError("GitHub authorization was rejected")
+    token = response.json().get("access_token")
+    if not token:
+        raise GitHubError("GitHub returned no access token")
+    return str(token)

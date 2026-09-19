@@ -164,6 +164,10 @@ class Settings(BaseSettings):
     # empty until the operator explicitly configures a prince-web-app token.
     prince_web_app_admin_token: str = ""
     shared_memory_token: str = ""
+    github_client_id: str = ""
+    github_client_secret: str = ""
+    github_oauth_redirect_uri: str = "https://intelligence-layer-production-2d12.up.railway.app/v1/github/oauth/callback"
+    github_webhook_secret: str = ""
 
     default_routing_mode: RoutingMode = RoutingMode.SINGLE
     default_parallel_models: list[str] = [

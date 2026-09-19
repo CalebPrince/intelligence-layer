@@ -222,3 +222,14 @@ CREATE TABLE IF NOT EXISTS shared_agent_memory (
 );
 CREATE INDEX IF NOT EXISTS shared_agent_memory_lookup_idx
   ON shared_agent_memory (memory_key, agent_key, created_at);
+
+CREATE TABLE IF NOT EXISTS github_oauth_states (
+  state TEXT PRIMARY KEY,
+  owner_id TEXT NOT NULL,
+  created_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS github_webhook_events (
+  delivery_id TEXT PRIMARY KEY,
+  received_at TEXT NOT NULL
+);

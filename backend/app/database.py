@@ -7,6 +7,7 @@ only this module's internals moved. Swapping to Postgres later (Supabase or
 otherwise) means reimplementing this file, not anything upstream of it.
 """
 import json
+import secrets
 import sqlite3
 import uuid
 from contextlib import contextmanager
@@ -127,6 +128,37 @@ def get_project_by_source_path(owner_id: str, source_path: str) -> Optional[dict
             (owner_id, source_path),
         ).fetchone()
         return _project_row(row) if row else None
+
+
+def create_github_oauth_state(owner_id: str) -> str:
+    state = secrets.token_urlsafe(32)
+    with get_connection() as conn:
+        conn.execute("INSERT INTO github_oauth_states (state, owner_id, created_at) VALUES (?, ?, ?)", (state, owner_id, _now()))
+    return state
+
+
+def consume_github_oauth_state(state: str) -> Optional[str]:
+    with get_connection() as conn:
+        row = conn.execute("SELECT owner_id FROM github_oauth_states WHERE state = ?", (state,)).fetchone()
+        if not row:
+            return None
+        conn.execute("DELETE FROM github_oauth_states WHERE state = ?", (state,))
+        return str(row["owner_id"])
+
+
+def project_by_source_path(source_path: str) -> Optional[dict[str, Any]]:
+    with get_connection() as conn:
+        row = conn.execute("SELECT * FROM projects WHERE source_path = ? LIMIT 1", (source_path,)).fetchone()
+        return _project_row(row) if row else None
+
+
+def record_github_delivery(delivery_id: str) -> bool:
+    with get_connection() as conn:
+        try:
+            conn.execute("INSERT INTO github_webhook_events (delivery_id, received_at) VALUES (?, ?)", (delivery_id, _now()))
+            return True
+        except sqlite3.IntegrityError:
+            return False
 
 
 def create_project(
