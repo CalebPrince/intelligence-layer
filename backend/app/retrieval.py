@@ -12,7 +12,7 @@ import re
 from collections import OrderedDict
 from typing import Any, Optional
 
-CONTEXT_BUDGET = 20_000  # characters sent per question (about 5,000 tokens)
+CONTEXT_BUDGET = 40_000  # characters sent per question (about 10,000 tokens)
 BASELINE_CHARS = 1_500  # opening of each "Project Brief" item, always included
 BASELINE_ITEMS = 2
 MAX_CHUNKS_PER_ITEM = 8

@@ -613,6 +613,20 @@ def get_conversation(conversation_id: str) -> Optional[dict[str, Any]]:
         return dict(row) if row else None
 
 
+def delete_latest_conversation(project_id: str) -> bool:
+    """Delete the latest native chat so it cannot reappear after reload."""
+    with get_connection() as conn:
+        row = conn.execute(
+            "SELECT id FROM conversations WHERE project_id = ? AND agent_key IS NULL "
+            "ORDER BY created_at DESC LIMIT 1",
+            (project_id,),
+        ).fetchone()
+        if not row:
+            return False
+        conn.execute("DELETE FROM conversations WHERE id = ?", (row["id"],))
+    return True
+
+
 def get_latest_agent_history(project_id: str, agent_key: str) -> dict[str, Any]:
     """Restore the latest persisted conversation for one external agent."""
     with get_connection() as conn:

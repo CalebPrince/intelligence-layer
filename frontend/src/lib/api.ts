@@ -592,6 +592,11 @@ export async function getChatHistory(projectId: string): Promise<ChatHistory> {
   return res.json();
 }
 
+export async function clearChat(projectId: string): Promise<void> {
+  const res = await fetch(`${BASE}/v1/projects/${projectId}/chat`, { method: "DELETE" });
+  if (!res.ok) throw new Error(await readError(res, "Could not clear the conversation"));
+}
+
 export async function getContextUsed(projectId: string, q = ""): Promise<ContextPreview> {
   const res = await fetch(`${BASE}/v1/projects/${projectId}/context/used?q=${encodeURIComponent(q)}`, { cache: "no-store" });
   if (!res.ok) throw new Error(await readError(res, "Could not load context sources"));

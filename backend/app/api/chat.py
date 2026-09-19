@@ -22,6 +22,27 @@ from app.schemas import (
 
 router = APIRouter(prefix="/v1", tags=["chat"])
 
+
+def project_system_brief(project: dict | None) -> str:
+    """Give every provider the same durable orientation before retrieval text."""
+    if not project:
+        return (
+            "You are answering inside Inteli-Space, a project intelligence workspace. "
+            "Use the supplied project context as the source of truth and say when the context does not contain an answer."
+        )
+    tags = ", ".join(project.get("tags") or []) or "none recorded"
+    return (
+        "You are answering inside Inteli-Space, the user's project intelligence workspace. "
+        "This conversation is about the project below. Treat the supplied Project Context Library as authoritative "
+        "workspace knowledge, connect answers to the actual app and its files, and do not fall back to generic advice "
+        "when the context contains a concrete answer. If the needed file or fact is not present in the supplied context, "
+        "say that clearly instead of inventing it.\n\n"
+        f"Project: {project.get('name') or 'Unnamed project'}\n"
+        f"Description: {project.get('description') or 'No description recorded'}\n"
+        f"Category: {project.get('category') or 'Uncategorized'}\n"
+        f"Tags: {tags}"
+    )
+
 def select_context(project_id: str, query: str | None) -> tuple[str, list[dict], dict]:
     """Which parts of the project's context go with this question (see
     app/retrieval.py): the sections that match it, plus a short brief baseline."""
@@ -79,17 +100,17 @@ async def chat(req: ChatRequest) -> ChatResponse:
         conversation_id = database.create_conversation(req.project_id)["id"]
 
     messages = list(req.messages)
+    project = database.get_project(req.project_id)
     context_used: list[dict] = []
     context_stats: dict | None = None
     if req.include_project_context:
         query = retrieval.query_from_messages(list(req.messages))
         hydrate_requested_github_files(req.project_id, query or "")
         context_blob, context_used, context_stats = select_context(req.project_id, query)
+        grounding = project_system_brief(project)
         if context_blob:
-            messages = [
-                ChatMessage(role="system", content=f"Project context:\n\n{context_blob}"),
-                *messages,
-            ]
+            grounding += f"\n\nProject Context Library:\n\n{context_blob}"
+        messages = [ChatMessage(role="system", content=grounding), *messages]
 
     affinity: dict[str, int] = {}
     if req.criteria.use_project_affinity:
@@ -159,6 +180,11 @@ async def context_used(project_id: str, q: str = "") -> dict:
 @router.get("/projects/{project_id}/conversations", response_model=list[ConversationSummary])
 async def list_conversations(project_id: str) -> list[dict]:
     return database.list_conversations(project_id)
+
+
+@router.delete("/projects/{project_id}/chat", status_code=204)
+async def clear_chat(project_id: str) -> None:
+    database.delete_latest_conversation(project_id)
 
 
 @router.get("/projects/{project_id}/chat/history", response_model=ChatHistory)

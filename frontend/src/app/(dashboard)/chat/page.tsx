@@ -17,9 +17,9 @@ import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { ChatContextPanel } from "@/components/chat/ChatContextPanel";
 import { ProjectIntelligence } from "@/components/chat/ProjectIntelligence";
-import { formatTime, resolvedContent, type Turn } from "@/components/chat/turn";
+import { formatTime, providerLabel, resolvedContent, type Turn } from "@/components/chat/turn";
 import { LogoMark, ProviderLogo } from "@/components/landing/Marks";
-import { approveGitHubProposal, createGitHubProposal, createProject, getChatHistory, getProject, listModels, recordDecision, rejectGitHubProposal, sendChat } from "@/lib/api";
+import { approveGitHubProposal, clearChat, createGitHubProposal, createProject, getChatHistory, getProject, listModels, recordDecision, rejectGitHubProposal, sendChat } from "@/lib/api";
 import { AGENTS } from "@/lib/agents";
 import type { Capability, ChatMessage, ChatResponse, GitHubActionMode, GitHubFileChange, GitHubActionProposal, ModelSpec, Project, RoutingMode } from "@/types";
 
@@ -43,6 +43,19 @@ function selectionToCriteria(sel: Selection): { mode: RoutingMode; explicitModel
 
 function isFileCreationRequest(text: string): boolean {
   return /\b(create|build|implement|add|generate|scaffold|make)\b[\s\S]*\b(file|page|component|feature|app|project|api|route|endpoint|form|screen)\b/i.test(text);
+}
+
+function addressedProvider(text: string): string | undefined {
+  const matches = new Set<string>();
+  const names: Array<[string, RegExp]> = [
+    ["anthropic", /\b(?:claude|anthropic)\b/i],
+    ["openai", /\b(?:chatgpt|gpt|openai)\b/i],
+    ["gemini", /\b(?:gemini|google)\b/i],
+  ];
+  for (const [provider, pattern] of names) {
+    if (pattern.test(text)) matches.add(provider);
+  }
+  return matches.size === 1 ? [...matches][0] : undefined;
 }
 
 const FILE_PROPOSAL_INSTRUCTION = `When this request asks you to create or modify project files, return a proposed file set for review. For each proposed file, use a fenced block whose first line is exactly FILE: relative/path.ext, followed by the complete file content. Do not claim files were written; they will be reviewed before a GitHub branch is created.`;
@@ -332,7 +345,15 @@ function ChatPageInner() {
     setTurns((prev) => [...prev, { id: turnId, prompt: text, sentAt: new Date().toISOString(), loading: true, compareOpen: true }]);
     setPrompt("");
 
-    const { mode, explicitModels } = selectionToCriteria(selection);
+    let { mode, explicitModels } = selectionToCriteria(selection);
+    const addressed = addressedProvider(text);
+    if (addressed) {
+      const addressedModel = providerModel[addressed]?.id;
+      if (addressedModel) {
+        mode = "single";
+        explicitModels = [addressedModel];
+      }
+    }
     const fileRequest = isFileCreationRequest(text);
 
     try {
@@ -400,6 +421,18 @@ function ChatPageInner() {
     setTurns((prev) => prev.map((t) => (t.id === turnId ? { ...t, compareOpen: !t.compareOpen } : t)));
   }
 
+  async function clearCurrentChat() {
+    if (!projectId) return;
+    try {
+      await clearChat(projectId);
+      setTurns([]);
+      setConversationId(undefined);
+      textareaRef.current?.focus();
+    } catch {
+      // Keep the visible conversation if the server could not clear it.
+    }
+  }
+
   function newChat() {
     setTurns([]);
     setConversationId(undefined);
@@ -425,6 +458,57 @@ function ChatPageInner() {
       : `Consulting ${models} with your project context`;
   }
 
+  function AssistantBubbles({ turn }: { turn: Turn }) {
+    const responses = turn.response?.responses.filter((response) => response.phase === "initial") ?? turn.response?.responses ?? [];
+    const visibleResponses = responses.filter((response) => response.success || response.error);
+
+    if (turn.loading) {
+      return (
+        <div className="flex items-start gap-3 pl-2">
+          <span className="mt-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#0F1B3D]">
+            <LogoMark className="h-5 w-5" />
+          </span>
+          <div className="rounded-2xl rounded-tl-md border border-ink/[0.08] bg-white px-4 py-3 text-sm text-ink/50">
+            <span className="mr-2 inline-block h-2 w-2 animate-pulse rounded-full bg-blue-500" />
+            Consulting models...
+          </div>
+        </div>
+      );
+    }
+
+    if (turn.error) {
+      return (
+        <div className="flex items-start gap-3 pl-2">
+          <span className="mt-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#0F1B3D]">
+            <LogoMark className="h-5 w-5" />
+          </span>
+          <p className="max-w-[78%] rounded-2xl rounded-tl-md bg-red-50 px-4 py-3 text-sm leading-relaxed text-red-700">{turn.error}</p>
+        </div>
+      );
+    }
+
+    return (
+      <div className="flex flex-col gap-3 pl-2">
+        {visibleResponses.map((response, index) => (
+          <div key={response.id ?? `${response.model_id}-${index}`} className="flex items-start gap-3">
+            <span className="mt-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#0F1B3D]">
+              <LogoMark className="h-5 w-5" />
+            </span>
+            <div className={`max-w-[78%] rounded-2xl rounded-tl-md border px-4 py-3 ${response.success ? "border-ink/[0.08] bg-white" : "border-red-100 bg-red-50"}`}>
+              <p className="mb-1 text-xs font-semibold text-ink/55">
+                {providerLabel(response.provider, response.display_name)}
+                <span className="ml-2 font-normal text-ink/35">{formatTime(turn.repliedAt ?? turn.sentAt)}</span>
+              </p>
+              <p className={`whitespace-pre-wrap text-[15px] leading-relaxed ${response.success ? "text-ink/85" : "text-red-700"}`}>
+                {response.success ? response.content : response.error ?? "Request failed"}
+              </p>
+            </div>
+          </div>
+        ))}
+      </div>
+    );
+  }
+
   const placeholder = `Ask anything about ${project?.name ?? "this project"}...`;
 
   return (
@@ -435,10 +519,10 @@ function ChatPageInner() {
             {turns.length > 0 && (
               <div className="-mb-2 flex justify-end">
                 <button
-                  onClick={newChat}
+                  onClick={clearCurrentChat}
                   className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium text-ink/50 transition hover:bg-white hover:text-ink"
                 >
-                  <RotateCcw className="h-3.5 w-3.5" strokeWidth={2} /> New chat
+                  <RotateCcw className="h-3.5 w-3.5" strokeWidth={2} /> Clear chat
                 </button>
               </div>
             )}
@@ -459,29 +543,33 @@ function ChatPageInner() {
                 </div>
               )
             ) : (
-              turns.map((turn) => (
+              turns.map((turn, turnIndex) => (
                 <div key={turn.id} className="flex flex-col gap-5">
                   {/* user message */}
-                  <div className="flex items-start gap-3">
-                    <span className="mt-1 flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-amber-200 to-orange-400 text-sm font-bold text-ink">
-                      CA
-                    </span>
-                    <div className="min-w-0 flex-1 rounded-2xl bg-[#E3ECFB] px-5 py-4">
-                      <p className="text-[14px]">
-                        <span className="font-semibold">You</span>
-                        <span className="ml-2.5 text-[13px] text-ink/50">{formatTime(turn.sentAt)}</span>
+                  <div className="flex items-start justify-end gap-3">
+                    <div className="min-w-0 max-w-[78%] rounded-2xl rounded-tr-md bg-[#E3ECFB] px-5 py-4">
+                      <p className="text-right text-[13px] text-ink/50">
+                        <span className="font-semibold text-ink/75">You</span>
+                        <span className="ml-2.5">{formatTime(turn.sentAt)}</span>
                       </p>
                       <p className="mt-1.5 whitespace-pre-wrap text-[17px] leading-snug text-ink">{turn.prompt}</p>
                     </div>
+                    <span className="mt-1 flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-amber-200 to-orange-400 text-sm font-bold text-ink">
+                      CA
+                    </span>
                   </div>
 
-                  <ProjectIntelligence
-                    turn={turn}
-                    taskLine={taskLine(turn)}
-                    onChoose={(id) => handleChoose(turn.id, id)}
-                    onDiscuss={() => textareaRef.current?.focus()}
-                    onToggleCards={() => toggleCards(turn.id)}
-                  />
+                  {turnIndex === 0 ? (
+                    <ProjectIntelligence
+                      turn={turn}
+                      taskLine={taskLine(turn)}
+                      onChoose={(id) => handleChoose(turn.id, id)}
+                      onDiscuss={() => textareaRef.current?.focus()}
+                      onToggleCards={() => toggleCards(turn.id)}
+                    />
+                  ) : (
+                    <AssistantBubbles turn={turn} />
+                  )}
                   {turn.response && <GitHubProposalPanel projectId={projectId} content={resolvedContent(turn) ?? ""} />}
                 </div>
               ))
