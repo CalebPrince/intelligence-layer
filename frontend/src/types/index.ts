@@ -89,6 +89,7 @@ export interface ChatResponse {
 }
 
 export type ProjectStatus = "active" | "planning" | "research";
+export type GitHubActionMode = "auto" | "manual" | "reject";
 
 export interface Project {
   id: string;
@@ -99,6 +100,7 @@ export interface Project {
   category?: string | null;
   tags: string[];
   source_path?: string | null;
+  github_action_mode?: GitHubActionMode;
   created_at: string;
   updated_at: string;
 }

@@ -104,6 +104,7 @@ class DecisionRequest(BaseModel):
 
 
 ProjectStatus = Literal["active", "planning", "research"]
+GitHubActionMode = Literal["auto", "manual", "reject"]
 
 
 class ProjectCreate(BaseModel):
@@ -113,6 +114,7 @@ class ProjectCreate(BaseModel):
     status: ProjectStatus = "active"
     category: Optional[str] = None
     tags: list[str] = []
+    github_action_mode: GitHubActionMode = "manual"
 
 
 class Project(BaseModel):
@@ -129,6 +131,7 @@ class Project(BaseModel):
     auto_sync: bool = True
     created_at: datetime
     updated_at: datetime
+    github_action_mode: GitHubActionMode = "manual"
 
 
 class ProjectUpdate(BaseModel):
@@ -138,6 +141,30 @@ class ProjectUpdate(BaseModel):
     tags: Optional[list[str]] = None
     image_url: Optional[str] = None
     auto_sync: Optional[bool] = None
+    github_action_mode: Optional[GitHubActionMode] = None
+
+
+class GitHubFileChange(BaseModel):
+    path: str
+    content: str
+
+
+class GitHubActionProposalCreate(BaseModel):
+    message: str = "Update files from Inteli-Space"
+    files: list[GitHubFileChange]
+
+
+class GitHubActionProposal(BaseModel):
+    id: str
+    project_id: str
+    mode: GitHubActionMode
+    status: Literal["pending", "rejected", "executed", "failed"]
+    message: str
+    files: list[GitHubFileChange]
+    branch: Optional[str] = None
+    commit_sha: Optional[str] = None
+    created_at: datetime
+    updated_at: datetime
 
 
 class ProjectContextItem(BaseModel):

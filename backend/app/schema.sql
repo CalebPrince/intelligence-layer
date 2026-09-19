@@ -18,7 +18,8 @@ CREATE TABLE IF NOT EXISTS projects (
   detected    TEXT,
   synced_at   TEXT,
   created_at  TEXT NOT NULL,
-  updated_at  TEXT NOT NULL
+  updated_at  TEXT NOT NULL,
+  github_action_mode TEXT NOT NULL DEFAULT 'manual'
 );
 
 CREATE TABLE IF NOT EXISTS project_context (
@@ -232,4 +233,17 @@ CREATE TABLE IF NOT EXISTS github_oauth_states (
 CREATE TABLE IF NOT EXISTS github_webhook_events (
   delivery_id TEXT PRIMARY KEY,
   received_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS github_action_proposals (
+  id TEXT PRIMARY KEY,
+  project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+  mode TEXT NOT NULL CHECK (mode IN ('auto', 'manual', 'reject')),
+  status TEXT NOT NULL CHECK (status IN ('pending', 'rejected', 'executed', 'failed')),
+  message TEXT NOT NULL,
+  files TEXT NOT NULL,
+  branch TEXT,
+  commit_sha TEXT,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
 );

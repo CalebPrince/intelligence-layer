@@ -68,6 +68,7 @@ def init_db() -> None:
             if column not in existing:
                 conn.execute(f"ALTER TABLE projects ADD COLUMN {column} {ddl}")
         for table, columns in (
+            ("projects", (("github_action_mode", "TEXT NOT NULL DEFAULT 'manual'"),)),
             ("project_context", (("folder", "TEXT"), ("updated_at", "TEXT"))),
             ("messages", (("context_used", "TEXT"),)),
             ("watched_folders", (("excluded", "TEXT NOT NULL DEFAULT '[]'"),)),
@@ -161,6 +162,33 @@ def record_github_delivery(delivery_id: str) -> bool:
             return False
 
 
+def create_github_proposal(project_id: str, mode: str, message: str, files: list[dict[str, str]]) -> dict[str, Any]:
+    proposal_id, now = _new_id(), _now()
+    status = "rejected" if mode == "reject" else "pending"
+    with get_connection() as conn:
+        conn.execute(
+            "INSERT INTO github_action_proposals (id, project_id, mode, status, message, files, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            (proposal_id, project_id, mode, status, message, json.dumps(files), now, now),
+        )
+    return {"id": proposal_id, "project_id": project_id, "mode": mode, "status": status, "message": message, "files": files, "branch": None, "commit_sha": None, "created_at": now, "updated_at": now}
+
+
+def get_github_proposal(proposal_id: str) -> Optional[dict[str, Any]]:
+    with get_connection() as conn:
+        row = conn.execute("SELECT * FROM github_action_proposals WHERE id = ?", (proposal_id,)).fetchone()
+    if not row:
+        return None
+    result = dict(row)
+    result["files"] = json.loads(result["files"] or "[]")
+    return result
+
+
+def update_github_proposal(proposal_id: str, status: str, branch: Optional[str] = None, commit_sha: Optional[str] = None) -> Optional[dict[str, Any]]:
+    with get_connection() as conn:
+        conn.execute("UPDATE github_action_proposals SET status = ?, branch = COALESCE(?, branch), commit_sha = COALESCE(?, commit_sha), updated_at = ? WHERE id = ?", (status, branch, commit_sha, _now(), proposal_id))
+    return get_github_proposal(proposal_id)
+
+
 def create_project(
     owner_id: str,
     name: str,
@@ -169,14 +197,15 @@ def create_project(
     category: Optional[str] = None,
     tags: Optional[list[str]] = None,
     source_path: Optional[str] = None,
+    github_action_mode: str = "manual",
 ) -> dict[str, Any]:
     project_id, now = _new_id(), _now()
     tags = tags or []
     with get_connection() as conn:
         conn.execute(
-            "INSERT INTO projects (id, owner_id, name, description, archived, status, category, tags, source_path, created_at, updated_at) "
-            "VALUES (?, ?, ?, ?, 0, ?, ?, ?, ?, ?, ?)",
-            (project_id, owner_id, name, description, status, category, json.dumps(tags), source_path, now, now),
+            "INSERT INTO projects (id, owner_id, name, description, archived, status, category, tags, source_path, created_at, updated_at, github_action_mode) "
+            "VALUES (?, ?, ?, ?, 0, ?, ?, ?, ?, ?, ?, ?)",
+            (project_id, owner_id, name, description, status, category, json.dumps(tags), source_path, now, now, github_action_mode),
         )
     return {
         "id": project_id,
@@ -188,6 +217,7 @@ def create_project(
         "category": category,
         "tags": tags,
         "source_path": source_path,
+        "github_action_mode": github_action_mode,
         "created_at": now,
         "updated_at": now,
     }

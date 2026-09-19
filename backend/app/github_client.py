@@ -41,6 +41,17 @@ def _request(token: str, path: str, params: dict[str, Any] | None = None) -> Any
     return response.json()
 
 
+def _write(token: str, method: str, path: str, payload: dict[str, Any]) -> Any:
+    try:
+        response = httpx.request(method, f"{API}{path}", headers=_headers(token), json=payload, timeout=20.0)
+    except httpx.HTTPError as exc:
+        raise GitHubError(f"GitHub could not be reached: {exc}") from exc
+    if response.status_code >= 400:
+        detail = response.json().get("message", "GitHub rejected the write") if response.content else "GitHub rejected the write"
+        raise GitHubError(f"{detail} ({response.status_code})")
+    return response.json()
+
+
 def list_repositories(token: str) -> list[dict[str, Any]]:
     data = _request(token, "/user/repos", {"per_page": 100, "sort": "updated", "affiliation": "owner,collaborator,organization_member"})
     return data if isinstance(data, list) else []
@@ -130,3 +141,19 @@ def exchange_code(client_id: str, client_secret: str, code: str, redirect_uri: s
     if not token:
         raise GitHubError("GitHub returned no access token")
     return str(token)
+
+
+def commit_files(token: str, owner: str, name: str, branch: str, message: str, files: list[dict[str, str]]) -> dict[str, str]:
+    repo = get_repository(token, owner, name)
+    default_branch = repo.get("default_branch", "main")
+    ref = _request(token, f"/repos/{owner}/{name}/git/ref/heads/{default_branch}")
+    base_sha = ref["object"]["sha"]
+    base_commit = _request(token, f"/repos/{owner}/{name}/git/commits/{base_sha}")
+    entries = []
+    for file in files:
+        blob = _write(token, "POST", f"/repos/{owner}/{name}/git/blobs", {"content": file["content"], "encoding": "utf-8"})
+        entries.append({"path": file["path"], "mode": "100644", "type": "blob", "sha": blob["sha"]})
+    tree = _write(token, "POST", f"/repos/{owner}/{name}/git/trees", {"base_tree": base_commit["tree"]["sha"], "tree": entries})
+    commit = _write(token, "POST", f"/repos/{owner}/{name}/git/commits", {"message": message, "tree": tree["sha"], "parents": [base_sha]})
+    _write(token, "POST", f"/repos/{owner}/{name}/git/refs", {"ref": f"refs/heads/{branch}", "sha": commit["sha"]})
+    return {"branch": branch, "commit_sha": commit["sha"], "html_url": f"https://github.com/{owner}/{name}/tree/{branch}"}

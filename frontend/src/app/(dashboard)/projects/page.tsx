@@ -35,7 +35,7 @@ import {
   updateWatch,
 } from "@/lib/api";
 import { SAMPLE_TEAM } from "@/lib/sampleWorkspace";
-import type { Project, ProjectStats, ProjectStatus, WatchStatus } from "@/types";
+import type { GitHubActionMode, Project, ProjectStats, ProjectStatus, WatchStatus } from "@/types";
 
 // TODO: replace with the signed-in user's id once auth is wired up.
 const DEMO_OWNER_ID = "00000000-0000-0000-0000-000000000000";
@@ -816,7 +816,7 @@ function CardMenu({
   project: Project;
   open: boolean;
   onToggle: () => void;
-  onPatch: (params: { archived?: boolean; status?: ProjectStatus }) => void;
+  onPatch: (params: { archived?: boolean; status?: ProjectStatus; github_action_mode?: GitHubActionMode }) => void;
   onSync: () => void;
 }) {
   return (
@@ -843,6 +843,20 @@ function CardMenu({
             >
               <RefreshCw className="h-3.5 w-3.5" strokeWidth={2} /> Sync from folder
             </button>
+          )}
+          {project.source_path?.startsWith("github://") && (
+            <label className="flex items-center justify-between gap-2 px-3 py-2 text-xs text-ink/70">
+              GitHub writes
+              <select
+                value={project.github_action_mode ?? "manual"}
+                onChange={(event) => onPatch({ github_action_mode: event.target.value as GitHubActionMode })}
+                className="rounded border border-ink/10 bg-white px-1.5 py-1 text-[11px]"
+              >
+                <option value="manual">Manual</option>
+                <option value="auto">Auto</option>
+                <option value="reject">Reject</option>
+              </select>
+            </label>
           )}
           {!project.archived &&
             STATUSES.filter((s) => s.value !== project.status).map((s) => (

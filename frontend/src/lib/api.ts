@@ -30,6 +30,7 @@ import type {
   Project,
   ProjectStats,
   ProjectStatus,
+    GitHubActionMode,
   RoutingMode,
   UsageSummary,
   WatchStatus,
@@ -130,7 +131,7 @@ export async function getProject(projectId: string): Promise<Project> {
 
 export async function updateProject(
   projectId: string,
-  params: { archived?: boolean; status?: ProjectStatus; category?: string; tags?: string[] }
+  params: { archived?: boolean; status?: ProjectStatus; category?: string; tags?: string[]; github_action_mode?: GitHubActionMode }
 ): Promise<Project> {
   const res = await fetch(`${BASE}/v1/projects/${projectId}`, {
     method: "PATCH",

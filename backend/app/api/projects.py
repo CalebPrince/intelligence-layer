@@ -16,7 +16,8 @@ async def list_projects(owner_id: str = Query(..., description="Signed-in user's
 @router.post("", response_model=Project, status_code=201)
 async def create_project(req: ProjectCreate) -> dict:
     return database.create_project(
-        req.owner_id, req.name, req.description, req.status, req.category, req.tags
+        req.owner_id, req.name, req.description, req.status, req.category, req.tags,
+        github_action_mode=req.github_action_mode,
     )
 
 
@@ -59,6 +60,7 @@ async def update_project(project_id: str, req: ProjectUpdate) -> dict:
         tags=req.tags,
         image_url=req.image_url,
         auto_sync=req.auto_sync,
+        github_action_mode=req.github_action_mode,
     )
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")

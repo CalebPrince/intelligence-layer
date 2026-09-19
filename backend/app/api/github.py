@@ -7,7 +7,7 @@ from fastapi.responses import RedirectResponse
 
 from app import database, github_client
 from app.config import get_settings
-from app.schemas import GitHubImportResult, GitHubRepository, Project
+from app.schemas import GitHubActionProposal, GitHubActionProposalCreate, GitHubImportResult, GitHubRepository, Project
 
 router = APIRouter(prefix="/v1/github", tags=["github"])
 
@@ -84,6 +84,60 @@ def _repo(data: dict) -> GitHubRepository:
         private=bool(data.get("private")), description=data.get("description"),
         default_branch=data.get("default_branch", "main"), html_url=data["html_url"], updated_at=data.get("updated_at"),
     )
+
+
+def _repo_parts(project: dict) -> tuple[str, str]:
+    source = str(project.get("source_path") or "")
+    if not source.startswith("github://") or "/" not in source.removeprefix("github://"):
+        raise HTTPException(status_code=400, detail="This project is not linked to GitHub")
+    return tuple(source.removeprefix("github://").split("/", 1))  # type: ignore[return-value]
+
+
+def _execute_proposal(proposal: dict, project: dict, token: str) -> dict:
+    owner, name = _repo_parts(project)
+    branch = f"inteli-space/{proposal['id'][:8]}"
+    result = github_client.commit_files(token, owner, name, branch, proposal["message"], proposal["files"])
+    return database.update_github_proposal(proposal["id"], "executed", result["branch"], result["commit_sha"]) or proposal
+
+
+@router.post("/projects/{project_id}/proposals", response_model=GitHubActionProposal)
+async def create_proposal(project_id: str, req: GitHubActionProposalCreate) -> dict:
+    project = database.get_project(project_id)
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+    if not req.files or len(req.files) > 50:
+        raise HTTPException(status_code=400, detail="Provide between 1 and 50 files")
+    proposal = database.create_github_proposal(project_id, project.get("github_action_mode", "manual"), req.message, [f.model_dump() for f in req.files])
+    if proposal["mode"] == "auto":
+        try:
+            return _execute_proposal(proposal, project, _token(project["owner_id"]))
+        except github_client.GitHubError as exc:
+            database.update_github_proposal(proposal["id"], "failed")
+            raise HTTPException(status_code=502, detail=str(exc)) from exc
+    return proposal
+
+
+@router.post("/proposals/{proposal_id}/approve", response_model=GitHubActionProposal)
+async def approve_proposal(proposal_id: str) -> dict:
+    proposal = database.get_github_proposal(proposal_id)
+    if not proposal or proposal["status"] != "pending":
+        raise HTTPException(status_code=404, detail="Pending proposal not found")
+    project = database.get_project(proposal["project_id"])
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+    try:
+        return _execute_proposal(proposal, project, _token(project["owner_id"]))
+    except github_client.GitHubError as exc:
+        database.update_github_proposal(proposal_id, "failed")
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+
+
+@router.post("/proposals/{proposal_id}/reject", response_model=GitHubActionProposal)
+async def reject_proposal(proposal_id: str) -> dict:
+    proposal = database.get_github_proposal(proposal_id)
+    if not proposal or proposal["status"] != "pending":
+        raise HTTPException(status_code=404, detail="Pending proposal not found")
+    return database.update_github_proposal(proposal_id, "rejected") or proposal
 
 
 @router.get("/repositories", response_model=list[GitHubRepository])
