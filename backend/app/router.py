@@ -104,12 +104,27 @@ async def _call_model(
 ) -> ModelResponse:
     start = time.perf_counter()
     api_key = _provider_key(settings, model.provider)
+    kwargs = {
+        "model": model.id,
+        "messages": [m.model_dump() for m in messages],
+        "api_key": api_key,
+    }
+    if model.provider == "anthropic" and settings.anthropic_workspace_id:
+        kwargs["extra_headers"] = {"anthropic-workspace-id": settings.anthropic_workspace_id}
     try:
-        result = await litellm.acompletion(
-            model=model.id,
-            messages=[m.model_dump() for m in messages],
-            api_key=api_key,
-        )
+        result = None
+        for attempt in range(2):
+            try:
+                result = await litellm.acompletion(**kwargs)
+                break
+            except Exception as exc:
+                transient = any(marker in str(exc) for marker in (" 429", " 503", "rate_limit", "UNAVAILABLE", "temporarily"))
+                if attempt == 0 and transient:
+                    await asyncio.sleep(0.8)
+                    continue
+                raise
+        if result is None:
+            raise RuntimeError("Model returned no result")
         latency_ms = int((time.perf_counter() - start) * 1000)
         usage = result.usage
         tokens_in = getattr(usage, "prompt_tokens", 0) or 0

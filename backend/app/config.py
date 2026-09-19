@@ -155,6 +155,7 @@ class Settings(BaseSettings):
 
     openai_api_key: str = ""
     anthropic_api_key: str = ""
+    anthropic_workspace_id: str = ""
     gemini_api_key: str = ""
 
     # prince-web-app's public agent API (no auth) — see app/sage_client.py.

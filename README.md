@@ -72,7 +72,7 @@ npm run dev           # backend http://localhost:8000 + frontend http://localhos
 
 `npm run dev:backend` / `npm run dev:frontend` start either one alone. `scripts/dev.mjs` is the launcher, `scripts/install.mjs` the setup.
 
-Backend settings (env vars or `backend/.env`): `WATCH_INTERVAL_SECONDS` (live scanner period, default 30), `SQLITE_PATH`, `CORS_ORIGINS`, provider API keys, `PRINCE_WEB_APP_ADMIN_TOKEN` for authenticated prince-web-app agent chat, and `SHARED_MEMORY_TOKEN` for cross-app memory.
+Backend settings (env vars or `backend/.env`): `WATCH_INTERVAL_SECONDS` (live scanner period, default 30), `SQLITE_PATH`, `CORS_ORIGINS`, provider API keys, `ANTHROPIC_WORKSPACE_ID` for workspace-scoped Anthropic keys, `PRINCE_WEB_APP_ADMIN_TOKEN` for authenticated prince-web-app agent chat, and `SHARED_MEMORY_TOKEN` for cross-app memory.
 
 ### Shared agent memory
 
