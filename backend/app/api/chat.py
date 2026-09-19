@@ -93,6 +93,41 @@ def hydrate_requested_github_files(project_id: str, query: str) -> None:
             known.add(path)
 
 
+def hydrate_empty_github_project(project: dict | None) -> None:
+    """Repair a GitHub project whose import created metadata but no context."""
+    if not project or database.get_project_context(project["id"], limit=1):
+        return
+    source = str(project.get("source_path") or "")
+    if not source.startswith("github://") or "/" not in source.removeprefix("github://"):
+        return
+    owner, name = source.removeprefix("github://").split("/", 1)
+    credential = database.get_integration_credential(project.get("owner_id", ""), "github")
+    token = str((credential or {}).get("credential", {}).get("token", "")).strip()
+    if not token:
+        return
+    repo = github_client.get_repository(token, owner, name)
+    repo_name = str(repo.get("full_name") or f"{owner}/{name}")
+    branch = str(repo.get("default_branch") or "main")
+    readme = github_client.get_readme(token, owner, name)
+    imported_paths: set[str] = set()
+    if readme:
+        path, content = readme
+        database.create_context_item(
+            project["id"], "document", f"{repo_name} / {path}", content,
+            {"source": "github", "repository": repo_name, "path": path, "html_url": repo.get("html_url", "")},
+            folder="GitHub",
+        )
+        imported_paths.add(path)
+    for path, content in github_client.list_text_files(token, owner, name, branch):
+        if path in imported_paths:
+            continue
+        database.create_context_item(
+            project["id"], "document", f"{repo_name} / {path}", content,
+            {"source": "github", "repository": repo_name, "path": path, "html_url": f"{repo.get('html_url', '')}/blob/{branch}/{path}"},
+            folder="GitHub",
+        )
+
+
 @router.post("/chat", response_model=ChatResponse)
 async def chat(req: ChatRequest) -> ChatResponse:
     conversation_id = req.conversation_id
@@ -105,6 +140,10 @@ async def chat(req: ChatRequest) -> ChatResponse:
     context_stats: dict | None = None
     if req.include_project_context:
         query = retrieval.query_from_messages(list(req.messages))
+        try:
+            hydrate_empty_github_project(project)
+        except github_client.GitHubError:
+            pass  # chat can still use manually added context if GitHub is unavailable
         hydrate_requested_github_files(req.project_id, query or "")
         context_blob, context_used, context_stats = select_context(req.project_id, query)
         grounding = project_system_brief(project)
