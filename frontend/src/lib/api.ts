@@ -533,6 +533,7 @@ export interface AgentChatResult {
   message_id: string;
   response_id: string;
   reply: string;
+  drafted?: Record<string, unknown> | null;
 }
 
 export interface AgentHistory {

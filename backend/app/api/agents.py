@@ -97,6 +97,7 @@ async def sage_chat(req: SageChatRequest) -> dict:
         "message_id": user_message["id"],
         "response_id": saved[0]["id"],
         "reply": result["reply"],
+        "drafted": result.get("drafted"),
     }
 
 

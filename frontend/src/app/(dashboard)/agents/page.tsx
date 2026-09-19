@@ -445,6 +445,7 @@ function AgentChatModal({ agent, projectId, onClose }: { agent: AgentCard; proje
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [drafted, setDrafted] = useState<Record<string, unknown> | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -480,6 +481,7 @@ function AgentChatModal({ agent, projectId, onClose }: { agent: AgentCard; proje
         DEMO_OWNER_ID
       );
       setConversationId(result.conversation_id);
+      if (result.drafted) setDrafted(result.drafted);
       setTurns((prev) => [...prev, { id: result.message_id, prompt: message, reply: result.reply, responseId: result.response_id }]);
     } catch (err) {
       setError(err instanceof Error ? err.message : `${agent.name} could not be reached`);
@@ -528,6 +530,7 @@ function AgentChatModal({ agent, projectId, onClose }: { agent: AgentCard; proje
           ))}
           {loading && <div className="mr-4 flex items-center gap-2 text-[13px] text-ink/45"><Loader2 className="h-3.5 w-3.5 animate-spin" /> {agent.name} is thinking...</div>}
           {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-[12.5px] text-red-700">{error}</p>}
+          {agent.chatKey === "ada" && drafted && <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-xs text-emerald-900"><p className="font-semibold">Invoice draft created for review</p><p className="mt-1">{String(drafted.invoice_number ?? "Draft invoice")} · {String(drafted.client_name ?? "Client")} · {String(drafted.currency ?? "")} {String(drafted.total ?? "")}</p><p className="mt-1 text-emerald-800/70">It was saved as a draft and was not sent.</p></div>}
           <div ref={bottomRef} />
         </div>
         <form onSubmit={(e) => { e.preventDefault(); send(); }} className="flex items-center gap-2 border-t border-ink/[0.07] p-3">

@@ -542,6 +542,7 @@ class AgentChatResponse(BaseModel):
     message_id: str
     response_id: str
     reply: str
+    drafted: Optional[dict[str, Any]] = None
 
 
 class ConversationSummary(BaseModel):
