@@ -6,6 +6,15 @@ from typing import Any
 import httpx
 
 API = "https://api.github.com"
+MAX_FILE_BYTES = 500_000
+MAX_FILES = 250
+SKIP_PARTS = {".git", "node_modules", ".next", "dist", "build", "vendor", "coverage"}
+TEXT_EXTENSIONS = {
+    ".md", ".txt", ".json", ".yaml", ".yml", ".toml", ".ini", ".env.example",
+    ".js", ".jsx", ".ts", ".tsx", ".mjs", ".cjs", ".py", ".php", ".java",
+    ".go", ".rs", ".rb", ".cs", ".cpp", ".c", ".h", ".css", ".scss", ".html",
+    ".vue", ".svelte", ".sql", ".sh", ".ps1", ".xml", ".graphql", ".env",
+}
 
 
 class GitHubError(Exception):
@@ -55,6 +64,29 @@ def get_readme(token: str, owner: str, name: str) -> tuple[str, str] | None:
     if not content:
         return None
     return path, base64.b64decode(content).decode("utf-8", errors="replace")
+
+
+def list_text_files(token: str, owner: str, name: str, branch: str) -> list[tuple[str, str]]:
+    tree = _request(token, f"/repos/{owner}/{name}/git/trees/{branch}", {"recursive": "1"})
+    entries = tree.get("tree", []) if isinstance(tree, dict) else []
+    files: list[tuple[str, str]] = []
+    for entry in entries:
+        path = str(entry.get("path", ""))
+        if entry.get("type") != "blob" or int(entry.get("size", 0) or 0) > MAX_FILE_BYTES:
+            continue
+        parts = set(path.split("/"))
+        suffix = "." + path.rsplit(".", 1)[-1].lower() if "." in path.rsplit("/", 1)[-1] else ""
+        if parts & SKIP_PARTS or suffix not in TEXT_EXTENSIONS:
+            continue
+        try:
+            blob = _request(token, f"/repos/{owner}/{name}/git/blobs/{entry['sha']}")
+            content = base64.b64decode(blob.get("content", "")).decode("utf-8", errors="replace")
+        except (KeyError, ValueError, UnicodeError):
+            continue
+        files.append((path, content))
+        if len(files) >= MAX_FILES:
+            break
+    return files
 
 
 def authorization_url(client_id: str, redirect_uri: str, state: str) -> str:

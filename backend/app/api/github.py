@@ -100,7 +100,22 @@ async def import_repository(owner: str, name: str, owner_id: str = Query(...)) -
     source_path = f"github://{owner}/{name}"
     existing = database.get_project_by_source_path(owner_id, source_path)
     if existing:
-        return GitHubImportResult(project=Project(**existing), context_items=0, already_imported=True)
+        try:
+            repo = _repo(github_client.get_repository(token, owner, name))
+            known_paths = database.context_paths_for_source(existing["id"], "github")
+            added = 0
+            for path, content in github_client.list_text_files(token, owner, name, repo.default_branch):
+                if path in known_paths:
+                    continue
+                database.create_context_item(
+                    existing["id"], "document", f"{repo.full_name} / {path}", content,
+                    {"source": "github", "repository": repo.full_name, "path": path, "html_url": f"{repo.html_url}/blob/{repo.default_branch}/{path}"},
+                    folder="GitHub",
+                )
+                added += 1
+            return GitHubImportResult(project=Project(**existing), context_items=added, already_imported=True)
+        except github_client.GitHubError as exc:
+            raise HTTPException(status_code=502, detail=str(exc)) from exc
     try:
         data = github_client.get_repository(token, owner, name)
         repo = _repo(data)
@@ -114,6 +129,15 @@ async def import_repository(owner: str, name: str, owner_id: str = Query(...)) -
             database.create_context_item(
                 project["id"], "document", f"{repo.full_name} / {path}", content,
                 {"source": "github", "repository": repo.full_name, "path": path, "html_url": repo.html_url},
+                folder="GitHub",
+            )
+            context_items += 1
+        for path, content in github_client.list_text_files(token, owner, name, repo.default_branch):
+            if readme and path == readme[0]:
+                continue
+            database.create_context_item(
+                project["id"], "document", f"{repo.full_name} / {path}", content,
+                {"source": "github", "repository": repo.full_name, "path": path, "html_url": f"{repo.html_url}/blob/{repo.default_branch}/{path}"},
                 folder="GitHub",
             )
             context_items += 1

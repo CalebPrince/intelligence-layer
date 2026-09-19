@@ -332,6 +332,16 @@ def create_context_item(
     }
 
 
+def context_paths_for_source(project_id: str, source: str) -> set[str]:
+    with get_connection() as conn:
+        rows = conn.execute(
+            "SELECT json_extract(metadata, '$.path') AS path FROM project_context "
+            "WHERE project_id = ? AND json_extract(metadata, '$.source') = ?",
+            (project_id, source),
+        ).fetchall()
+    return {str(row["path"]) for row in rows if row["path"]}
+
+
 def get_context_item(project_id: str, item_id: str) -> Optional[dict[str, Any]]:
     with get_connection() as conn:
         row = conn.execute(
