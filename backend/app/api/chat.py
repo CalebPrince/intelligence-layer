@@ -1,8 +1,9 @@
 """POST /v1/chat — ties router.py (selection + execution) to database.py
 (context retrieval, persistence, and the per-project affinity signal)."""
+import re
 from fastapi import APIRouter, HTTPException
 
-from app import context_meta, database, retrieval
+from app import context_meta, database, github_client, retrieval
 from app.config import MODEL_REGISTRY
 from app.router import route_and_complete
 from app.schemas import (
@@ -29,6 +30,48 @@ def select_context(project_id: str, query: str | None) -> tuple[str, list[dict],
     return retrieval.select_context(items, query or "", folder_of)
 
 
+def hydrate_requested_github_files(project_id: str, query: str) -> None:
+    """Fetch a large GitHub text file when the question names it."""
+    project = database.get_project(project_id)
+    source = (project or {}).get("source_path") or ""
+    if not source.startswith("github://"):
+        return
+    parts = source.removeprefix("github://").split("/", 1)
+    if len(parts) != 2:
+        return
+    owner, repo_name = parts
+    credential = database.get_integration_credential((project or {}).get("owner_id", ""), "github")
+    token = str((credential or {}).get("credential", {}).get("token", "")).strip()
+    if not token:
+        return
+    query_lower = query.lower()
+    try:
+        branch = str(github_client.get_repository(token, owner, repo_name).get("default_branch", "main"))
+    except github_client.GitHubError:
+        branch = "main"
+    known = database.context_paths_for_source(project_id, "github")
+    for item in database.get_project_context(project_id, limit=500):
+        if item.get("metadata", {}).get("path") != "large files manifest":
+            continue
+        for line in item.get("content", "").splitlines():
+            match = re.match(r"^- (.+?) \(\d+ KB\)$", line.strip())
+            if not match:
+                continue
+            path = match.group(1)
+            if path in known or (path.lower() not in query_lower and path.rsplit("/", 1)[-1].lower() not in query_lower):
+                continue
+            try:
+                content = github_client.get_file(token, owner, repo_name, path, branch)
+            except github_client.GitHubError:
+                continue
+            database.create_context_item(
+                project_id, "document", f"{owner}/{repo_name} / {path}", content,
+                {"source": "github", "repository": f"{owner}/{repo_name}", "path": path, "on_demand": True},
+                folder="GitHub",
+            )
+            known.add(path)
+
+
 @router.post("/chat", response_model=ChatResponse)
 async def chat(req: ChatRequest) -> ChatResponse:
     conversation_id = req.conversation_id
@@ -39,9 +82,9 @@ async def chat(req: ChatRequest) -> ChatResponse:
     context_used: list[dict] = []
     context_stats: dict | None = None
     if req.include_project_context:
-        context_blob, context_used, context_stats = select_context(
-            req.project_id, retrieval.query_from_messages(list(req.messages))
-        )
+        query = retrieval.query_from_messages(list(req.messages))
+        hydrate_requested_github_files(req.project_id, query or "")
+        context_blob, context_used, context_stats = select_context(req.project_id, query)
         if context_blob:
             messages = [
                 ChatMessage(role="system", content=f"Project context:\n\n{context_blob}"),
