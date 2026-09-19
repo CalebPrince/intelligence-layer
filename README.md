@@ -1,8 +1,16 @@
-# Model-Agnostic Layer
+# Inteli-Space
 
 > One project, routed across multiple model perspectives: Claude, GPT, and Gemini answer from the same project context, independently or together, and you record which answer you actually acted on.
 
 This file tracks where the build actually stands. Updated as work lands, not written once and forgotten.
+
+## Live deployment
+
+- **Frontend:** https://intelispace.vercel.app
+- **Backend:** https://intelligence-layer-production-2d12.up.railway.app
+- **Backend health:** https://intelligence-layer-production-2d12.up.railway.app/health
+
+The frontend is deployed on Vercel from `frontend/`. The FastAPI backend runs on Railway from `backend/`, using the repository Dockerfile. Vercel rewrites `/api/backend/*` requests to the Railway backend in production.
 
 **Last updated:** 2026-09-19 (Sage — a real prince-web-app agent, not a lookalike — is now live on the `/agents` page with genuine shared memory and feeds the same decisions/affinity loop as the LLM models; section-based context selection so chat sends only the matching parts of long documents, with a live "tokens sent vs saved" estimate; Agents, Analytics, Integrations and Settings pages built out to match their references; `/v1/analytics` adds real usage-by-day, cost, top-projects and storage numbers; a batch of backend gaps got their API built — milestones, workspace settings, integration credentials with a live test-connection check, decisions extras, per-project sync control, watch-folder exclude, empty/renameable context folders, project images, a conversations list — **API only, no frontend UI wired yet**, see "Backend built, UI not wired yet" below; 8 folders got a `project.json`)
 
@@ -20,7 +28,7 @@ accepted models — extended to real agents the moment they save a
 The open question that "learns from their outcome" has to actually answer,
 kept in view rather than assumed answered by what exists today:
 
-> **Can Intelligence Layer become measurably better at helping an organization
+> **Can Inteli-Space become measurably better at helping an organization
 > make its 100th project decision because it has observed what happened after
 > the first 99?**
 
