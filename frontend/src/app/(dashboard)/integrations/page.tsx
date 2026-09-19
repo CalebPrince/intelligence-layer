@@ -160,6 +160,11 @@ export default function IntegrationsPage() {
     }
   }
 
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get("github") === "repos") void openGitHubRepositories();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   async function importRepository(repo: GitHubRepository) {
     setGithubImporting(repo.full_name);
     setIntegrationMessage(null);
@@ -302,7 +307,7 @@ export default function IntegrationsPage() {
                         <div className="mt-3 flex items-center justify-between gap-2">
                           <button onClick={() => openIntegration(entry)} className="rounded-lg border border-ink/10 px-2.5 py-1.5 text-xs font-medium hover:border-ink/25">Update</button>
                           <div className="flex items-center gap-2">
-                            {entry.key === "github" && <button onClick={openGitHubRepositories} className="text-xs font-medium text-blue-600 hover:text-blue-700">Browse repos</button>}
+                            {entry.key === "github" && <a href="/integrations?github=repos" className="text-xs font-medium text-blue-600 hover:text-blue-700">Browse repos</a>}
                             <button onClick={() => disconnectIntegration(entry)} className="text-xs font-medium text-red-600 hover:text-red-700">Disconnect</button>
                           </div>
                         </div>
