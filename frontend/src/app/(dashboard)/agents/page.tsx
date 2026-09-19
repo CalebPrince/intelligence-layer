@@ -27,7 +27,8 @@ import {
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { PageHero } from "@/components/dashboard/PageHero";
-import { agentChat, getAgentHistory, listProjects, recordDecision, sageChat } from "@/lib/api";
+import { agentChat, draftProposal, getAgentHistory, listProjects, recordDecision, sageChat } from "@/lib/api";
+import type { ProposalDraft } from "@/lib/api";
 
 const DEMO_OWNER_ID = "00000000-0000-0000-0000-000000000000";
 const SHARED_MEMORY_KEY = "prince-caleb";
@@ -128,6 +129,7 @@ export default function AgentsPage() {
   const [view, setView] = useState<"grid" | "list">("grid");
   const [sageOpen, setSageOpen] = useState(false);
   const [chatAgent, setChatAgent] = useState<AgentCard | null>(null);
+  const [proposalOpen, setProposalOpen] = useState(false);
   const [projectId, setProjectId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -267,6 +269,14 @@ export default function AgentsPage() {
                         <MessageCircle className="h-3.5 w-3.5" strokeWidth={2} /> Chat with {a.name}
                       </button>
                     )}
+                    {a.chatKey === "proposal" && (
+                      <button
+                        onClick={() => setProposalOpen(true)}
+                        className="mt-2 flex w-full items-center justify-center rounded-lg border border-amber-200 bg-amber-50 py-2 text-[13px] font-semibold text-amber-800 hover:bg-amber-100"
+                      >
+                        Draft a proposal
+                      </button>
+                    )}
                   </div>
                 );
               })}
@@ -360,7 +370,53 @@ export default function AgentsPage() {
       {chatAgent && projectId && chatAgent.chatKey && (
         <AgentChatModal agent={chatAgent} projectId={projectId} onClose={() => setChatAgent(null)} />
       )}
+      {proposalOpen && <ProposalDraftModal onClose={() => setProposalOpen(false)} />}
     </main>
+  );
+}
+
+function ProposalDraftModal({ onClose }: { onClose: () => void }) {
+  const [brief, setBrief] = useState("");
+  const [draft, setDraft] = useState<ProposalDraft | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function generate(event: React.FormEvent) {
+    event.preventDefault();
+    if (!brief.trim()) return;
+    setLoading(true);
+    setError(null);
+    try {
+      setDraft(await draftProposal(brief.trim()));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not draft proposal");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink/40 p-5" role="dialog" aria-modal="true" aria-labelledby="proposal-draft-title">
+      <div className="flex max-h-[88vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl">
+        <div className="flex items-start justify-between border-b border-ink/[0.07] px-5 py-4">
+          <div><p id="proposal-draft-title" className="font-display text-lg font-bold">Draft a proposal</p><p className="mt-1 text-[13px] text-ink/55">Proposal will be generated for review only. Nothing is saved or sent.</p></div>
+          <button onClick={onClose} className="text-sm text-ink/45 hover:text-ink">Close</button>
+        </div>
+        {!draft ? (
+          <form onSubmit={generate} className="p-5">
+            <textarea value={brief} onChange={(e) => setBrief(e.target.value)} rows={6} placeholder="Describe the client, project scope, budget, and timeline in plain language..." className="w-full resize-y rounded-xl border border-ink/12 p-3 text-sm outline-none focus:border-blue-400" />
+            {error && <p className="mt-3 text-xs text-red-600">{error}</p>}
+            <div className="mt-4 flex justify-end"><button type="submit" disabled={loading || !brief.trim()} className="rounded-lg bg-amber-600 px-4 py-2 text-sm font-semibold text-white hover:bg-amber-700 disabled:opacity-50">{loading ? "Drafting..." : "Generate draft"}</button></div>
+          </form>
+        ) : (
+          <div className="overflow-y-auto p-5">
+            <div className="rounded-xl border border-ink/[0.08] bg-[#FAFBFD] p-4"><p className="font-display text-lg font-bold">{draft.title}</p><p className="mt-1 text-sm text-ink/60">{draft.client_name} · {draft.client_email} · {draft.currency}</p><p className="mt-4 whitespace-pre-wrap text-sm leading-relaxed text-ink/75">{draft.scope}</p><p className="mt-4 text-sm"><strong>Timeline:</strong> {draft.timeline}</p><p className="mt-2 text-sm"><strong>Terms:</strong> {draft.terms}</p><div className="mt-4"><p className="text-sm font-semibold">Milestones</p><ul className="mt-2 space-y-1 text-sm text-ink/70">{draft.milestones.map((milestone) => <li key={milestone.title}>{milestone.title}: {milestone.amount} ({milestone.due_note})</li>)}</ul></div></div>
+            <p className="mt-3 text-xs text-ink/45">This draft is not stored or sent. Open the Proposals page to create it manually after review.</p>
+            <div className="mt-4 flex justify-end"><button onClick={onClose} className="rounded-lg bg-ink px-4 py-2 text-sm font-semibold text-white">Done</button></div>
+          </div>
+        )}
+      </div>
+    </div>
   );
 }
 

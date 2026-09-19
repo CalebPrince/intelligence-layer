@@ -149,3 +149,14 @@ async def admin_agent_chat(req: AgentChatRequest) -> dict:
         "response_id": saved[0]["id"],
         "reply": result["reply"],
     }
+
+
+@router.post("/proposal/draft")
+async def proposal_draft(inquiry_id: int | None = None, brief: str = "") -> dict:
+    payload = {"brief": brief}
+    if inquiry_id is not None:
+        payload["inquiry_id"] = inquiry_id
+    try:
+        return await run_in_threadpool(agent_client.request_json, "/api/v1/admin/proposals/generate", payload)
+    except agent_client.AgentError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc

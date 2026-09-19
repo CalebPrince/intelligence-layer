@@ -46,3 +46,25 @@ def chat(agent_key: str, message: str, transcript: list[dict[str, str]]) -> dict
     if not isinstance(result.get("reply"), str) or not result["reply"].strip():
         raise AgentError(f"{agent_key} returned no reply.")
     return result
+
+
+def request_json(path: str, payload: dict[str, Any]) -> dict[str, Any]:
+    settings = get_settings()
+    token = settings.prince_web_app_admin_token.strip()
+    if not token:
+        raise AgentError("Admin agent access is not configured yet.")
+    url = f"{settings.prince_web_app_url.rstrip('/')}{path}"
+    try:
+        response = httpx.post(url, json=payload, headers={"Authorization": f"Bearer {token}"}, timeout=45.0)
+    except httpx.HTTPError as exc:
+        raise AgentError(f"Could not reach prince-web-app: {exc}") from exc
+    if response.status_code >= 400:
+        try:
+            detail = response.json().get("error") or response.json().get("detail")
+        except ValueError:
+            detail = None
+        raise AgentError(detail or f"prince-web-app returned an error ({response.status_code}).")
+    result = response.json()
+    if not isinstance(result, dict):
+        raise AgentError("prince-web-app returned an invalid draft.")
+    return result

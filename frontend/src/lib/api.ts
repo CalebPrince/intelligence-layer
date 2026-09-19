@@ -435,6 +435,27 @@ export async function rejectGitHubProposal(proposalId: string): Promise<GitHubAc
   return res.json();
 }
 
+export interface ProposalDraft {
+  client_name: string;
+  client_email: string;
+  title: string;
+  scope: string;
+  timeline: string;
+  terms: string;
+  currency: string;
+  milestones: { title: string; amount: number; due_note: string }[];
+  grounding_source: string;
+  grounding_note: string;
+}
+
+export async function draftProposal(brief: string, inquiryId?: number): Promise<ProposalDraft> {
+  const qs = new URLSearchParams({ brief });
+  if (inquiryId !== undefined) qs.set("inquiry_id", String(inquiryId));
+  const res = await fetch(`${BASE}/v1/agents/proposal/draft?${qs}`, { method: "POST" });
+  if (!res.ok) throw new Error(await readError(res, "Could not draft a proposal"));
+  return res.json();
+}
+
 // --- milestones ----------------------------------------------------------------
 
 export async function getNextMilestone(projectId: string): Promise<Milestone | null> {
