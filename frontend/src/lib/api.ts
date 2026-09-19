@@ -20,6 +20,8 @@ import type {
   ImportResult,
   IntegrationCatalogEntry,
   IntegrationCredential,
+  GitHubImportResult,
+  GitHubRepository,
   LibraryItem,
   LibraryItemDetail,
   LibraryStats,
@@ -382,6 +384,20 @@ export async function saveIntegration(ownerId: string, service: string, credenti
 export async function deleteIntegration(ownerId: string, service: string): Promise<void> {
   const res = await fetch(`${BASE}/v1/integrations/${encodeURIComponent(service)}?owner_id=${encodeURIComponent(ownerId)}`, { method: "DELETE" });
   if (!res.ok) throw new Error(await readError(res, "Could not disconnect integration"));
+}
+
+export async function listGitHubRepositories(ownerId: string): Promise<GitHubRepository[]> {
+  const res = await fetch(`${BASE}/v1/github/repositories?owner_id=${encodeURIComponent(ownerId)}`, { cache: "no-store" });
+  if (!res.ok) throw new Error(await readError(res, "Could not load GitHub repositories"));
+  return res.json();
+}
+
+export async function importGitHubRepository(ownerId: string, owner: string, name: string): Promise<GitHubImportResult> {
+  const res = await fetch(`${BASE}/v1/github/repositories/${encodeURIComponent(owner)}/${encodeURIComponent(name)}/import?owner_id=${encodeURIComponent(ownerId)}`, {
+    method: "POST",
+  });
+  if (!res.ok) throw new Error(await readError(res, "Could not import that GitHub repository"));
+  return res.json();
 }
 
 // --- milestones ----------------------------------------------------------------

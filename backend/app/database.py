@@ -120,6 +120,15 @@ def get_project(project_id: str) -> Optional[dict[str, Any]]:
         return _project_row(row) if row else None
 
 
+def get_project_by_source_path(owner_id: str, source_path: str) -> Optional[dict[str, Any]]:
+    with get_connection() as conn:
+        row = conn.execute(
+            "SELECT * FROM projects WHERE owner_id = ? AND source_path = ?",
+            (owner_id, source_path),
+        ).fetchone()
+        return _project_row(row) if row else None
+
+
 def create_project(
     owner_id: str,
     name: str,

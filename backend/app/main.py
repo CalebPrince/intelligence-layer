@@ -17,6 +17,7 @@ from app.api.imports import router as imports_router
 from app.api.integrations import router as integrations_router
 from app.api.library import router as library_router
 from app.api.insights import router as insights_router
+from app.api.github import router as github_router
 from app.api.milestones import router as milestones_router
 from app.api.projects import router as projects_router
 from app.api.settings_api import router as settings_router
@@ -59,6 +60,7 @@ app.include_router(imports_router)
 app.include_router(integrations_router)
 app.include_router(library_router)
 app.include_router(insights_router)
+app.include_router(github_router)
 app.include_router(milestones_router)
 app.include_router(projects_router)
 app.include_router(settings_router)

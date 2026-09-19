@@ -304,6 +304,24 @@ export interface IntegrationCredential {
   fields_set: string[];
 }
 
+export interface GitHubRepository {
+  id: number;
+  full_name: string;
+  name: string;
+  owner: string;
+  private: boolean;
+  description?: string | null;
+  default_branch: string;
+  html_url: string;
+  updated_at?: string | null;
+}
+
+export interface GitHubImportResult {
+  project: Project;
+  context_items: number;
+  already_imported: boolean;
+}
+
 /** Real usage numbers for /analytics beyond what DashboardSummary covers —
  * see backend/app/api/analytics.py. */
 export interface AnalyticsSummary {

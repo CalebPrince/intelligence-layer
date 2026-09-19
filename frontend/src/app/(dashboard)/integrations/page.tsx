@@ -19,8 +19,8 @@ import {
   Zap,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
-import { deleteIntegration, getCredits, getIntegrationCatalog, listIntegrations, saveIntegration } from "@/lib/api";
-import type { CreditSummary, IntegrationCatalogEntry, IntegrationCredential } from "@/types";
+import { deleteIntegration, getCredits, getIntegrationCatalog, importGitHubRepository, listGitHubRepositories, listIntegrations, saveIntegration } from "@/lib/api";
+import type { CreditSummary, GitHubRepository, IntegrationCatalogEntry, IntegrationCredential } from "@/types";
 
 const CARD = "rounded-2xl border border-ink/[0.07] bg-white shadow-[0_1px_2px_rgba(11,14,20,0.03)]";
 const DEMO_OWNER_ID = "00000000-0000-0000-0000-000000000000";
@@ -90,6 +90,10 @@ export default function IntegrationsPage() {
   const [credentialValues, setCredentialValues] = useState<Record<string, string>>({});
   const [savingService, setSavingService] = useState(false);
   const [integrationMessage, setIntegrationMessage] = useState<string | null>(null);
+  const [githubRepos, setGithubRepos] = useState<GitHubRepository[]>([]);
+  const [githubOpen, setGithubOpen] = useState(false);
+  const [githubLoading, setGithubLoading] = useState(false);
+  const [githubImporting, setGithubImporting] = useState<string | null>(null);
 
   useEffect(() => {
     Promise.all([getCredits().catch(() => null), getIntegrationCatalog(), listIntegrations(DEMO_OWNER_ID)])
@@ -136,6 +140,32 @@ export default function IntegrationsPage() {
       setCredentials((current) => current.filter((item) => item.service !== entry.key));
     } catch (error) {
       setIntegrationMessage(error instanceof Error ? error.message : "Could not disconnect integration");
+    }
+  }
+
+  async function openGitHubRepositories() {
+    setGithubOpen(true);
+    setGithubLoading(true);
+    setIntegrationMessage(null);
+    try {
+      setGithubRepos(await listGitHubRepositories(DEMO_OWNER_ID));
+    } catch (error) {
+      setIntegrationMessage(error instanceof Error ? error.message : "Could not load GitHub repositories");
+    } finally {
+      setGithubLoading(false);
+    }
+  }
+
+  async function importRepository(repo: GitHubRepository) {
+    setGithubImporting(repo.full_name);
+    setIntegrationMessage(null);
+    try {
+      const result = await importGitHubRepository(DEMO_OWNER_ID, repo.owner, repo.name);
+      setIntegrationMessage(result.already_imported ? `${repo.full_name} is already in Projects` : `Imported ${repo.full_name} with ${result.context_items} context items`);
+    } catch (error) {
+      setIntegrationMessage(error instanceof Error ? error.message : "Could not import repository");
+    } finally {
+      setGithubImporting(null);
     }
   }
 
@@ -267,7 +297,10 @@ export default function IntegrationsPage() {
                         <p className="mt-1 text-[13px] leading-snug text-ink/55">{credential.status_detail || `${credential.fields_set.length} credential field${credential.fields_set.length === 1 ? "" : "s"} saved.`}</p>
                         <div className="mt-3 flex items-center justify-between gap-2">
                           <button onClick={() => openIntegration(entry)} className="rounded-lg border border-ink/10 px-2.5 py-1.5 text-xs font-medium hover:border-ink/25">Update</button>
-                          <button onClick={() => disconnectIntegration(entry)} className="text-xs font-medium text-red-600 hover:text-red-700">Disconnect</button>
+                          <div className="flex items-center gap-2">
+                            {entry.key === "github" && <button onClick={openGitHubRepositories} className="text-xs font-medium text-blue-600 hover:text-blue-700">Browse repos</button>}
+                            <button onClick={() => disconnectIntegration(entry)} className="text-xs font-medium text-red-600 hover:text-red-700">Disconnect</button>
+                          </div>
                         </div>
                       </div>
                     );
@@ -430,6 +463,35 @@ export default function IntegrationsPage() {
                 <button onClick={submitIntegration} disabled={savingService || selectedService.fields.some((field) => !credentialValues[field.key]?.trim())} className="rounded-lg bg-blue-600 px-3.5 py-2 text-[13px] font-semibold text-white hover:bg-blue-700 disabled:opacity-50">
                   {savingService ? "Connecting..." : selectedService.has_live_check ? "Save and test" : "Save connection"}
                 </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {githubOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink/30 p-5" role="dialog" aria-modal="true" aria-labelledby="github-repos-title">
+            <div className={`${CARD} flex max-h-[80vh] w-full max-w-2xl flex-col p-5`}>
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <p id="github-repos-title" className="font-display text-lg font-bold">GitHub repositories</p>
+                  <p className="mt-1 text-[13px] text-ink/55">Import a repository into Projects and add its README to the knowledge base.</p>
+                </div>
+                <button onClick={() => setGithubOpen(false)} className="text-sm text-ink/45 hover:text-ink">Close</button>
+              </div>
+              <div className="mt-4 min-h-0 overflow-y-auto">
+                {githubLoading ? <p className="py-8 text-center text-sm text-ink/45">Loading repositories...</p> : githubRepos.length === 0 ? <p className="py-8 text-center text-sm text-ink/45">No repositories available for this token.</p> : (
+                  <ul className="divide-y divide-ink/[0.06]">
+                    {githubRepos.map((repo) => (
+                      <li key={repo.id} className="flex items-center gap-3 py-3">
+                        <span className="min-w-0 flex-1">
+                          <span className="flex items-center gap-2 text-sm font-semibold"><span className="truncate">{repo.full_name}</span>{repo.private && <span className="rounded bg-amber-50 px-1.5 py-0.5 text-[10px] text-amber-700">Private</span>}</span>
+                          <span className="mt-1 block truncate text-xs text-ink/50">{repo.description || "No description"}</span>
+                        </span>
+                        <button onClick={() => importRepository(repo)} disabled={githubImporting === repo.full_name} className="shrink-0 rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-blue-700 disabled:opacity-50">{githubImporting === repo.full_name ? "Importing..." : "Import"}</button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
               </div>
             </div>
           </div>

@@ -363,6 +363,24 @@ class IntegrationCredential(BaseModel):
     fields_set: list[str] = []
 
 
+class GitHubRepository(BaseModel):
+    id: int
+    full_name: str
+    name: str
+    owner: str
+    private: bool
+    description: Optional[str] = None
+    default_branch: str
+    html_url: str
+    updated_at: Optional[str] = None
+
+
+class GitHubImportResult(BaseModel):
+    project: Project
+    context_items: int
+    already_imported: bool = False
+
+
 class WorkspaceSettingsUpdate(BaseModel):
     workspace_name: Optional[str] = None
     default_view: Optional[str] = None
