@@ -324,6 +324,24 @@ export interface GitHubImportResult {
   already_imported: boolean;
 }
 
+export interface GitHubFileChange {
+  path: string;
+  content: string;
+}
+
+export interface GitHubActionProposal {
+  id: string;
+  project_id: string;
+  mode: GitHubActionMode;
+  status: "pending" | "rejected" | "executed" | "failed";
+  message: string;
+  files: GitHubFileChange[];
+  branch?: string | null;
+  commit_sha?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 /** Real usage numbers for /analytics beyond what DashboardSummary covers —
  * see backend/app/api/analytics.py. */
 export interface AnalyticsSummary {

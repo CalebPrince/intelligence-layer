@@ -107,7 +107,8 @@ async def create_proposal(project_id: str, req: GitHubActionProposalCreate) -> d
         raise HTTPException(status_code=404, detail="Project not found")
     if not req.files or len(req.files) > 50:
         raise HTTPException(status_code=400, detail="Provide between 1 and 50 files")
-    proposal = database.create_github_proposal(project_id, project.get("github_action_mode", "manual"), req.message, [f.model_dump() for f in req.files])
+    mode = req.mode or project.get("github_action_mode", "manual")
+    proposal = database.create_github_proposal(project_id, mode, req.message, [f.model_dump() for f in req.files])
     if proposal["mode"] == "auto":
         try:
             return _execute_proposal(proposal, project, _token(project["owner_id"]))

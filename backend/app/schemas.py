@@ -152,6 +152,7 @@ class GitHubFileChange(BaseModel):
 class GitHubActionProposalCreate(BaseModel):
     message: str = "Update files from Inteli-Space"
     files: list[GitHubFileChange]
+    mode: Optional[GitHubActionMode] = None
 
 
 class GitHubActionProposal(BaseModel):

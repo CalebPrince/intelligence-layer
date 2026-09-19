@@ -19,9 +19,9 @@ import { ChatContextPanel } from "@/components/chat/ChatContextPanel";
 import { ProjectIntelligence } from "@/components/chat/ProjectIntelligence";
 import { formatTime, resolvedContent, type Turn } from "@/components/chat/turn";
 import { LogoMark, ProviderLogo } from "@/components/landing/Marks";
-import { createProject, getChatHistory, getProject, listModels, recordDecision, sendChat } from "@/lib/api";
+import { approveGitHubProposal, createGitHubProposal, createProject, getChatHistory, getProject, listModels, recordDecision, rejectGitHubProposal, sendChat } from "@/lib/api";
 import { AGENTS } from "@/lib/agents";
-import type { Capability, ChatMessage, ChatResponse, ModelSpec, Project, RoutingMode } from "@/types";
+import type { Capability, ChatMessage, ChatResponse, GitHubActionMode, GitHubFileChange, GitHubActionProposal, ModelSpec, Project, RoutingMode } from "@/types";
 
 // One mutually-exclusive selector: pick a routing mode, or point at one specific
 // model. Mirrors the Auto / GPT / Claude / Gemini / Parallel / Deliberate pill
@@ -39,6 +39,72 @@ function selectionToCriteria(sel: Selection): { mode: RoutingMode; explicitModel
     case "deliberation":
       return { mode: "deliberation" };
   }
+}
+
+function extractFileChanges(content: string): GitHubFileChange[] {
+  const changes: GitHubFileChange[] = [];
+  const pattern = /```[^\n]*\n(?:FILE|PATH):\s*([^\n]+)\n([\s\S]*?)```/gi;
+  for (const match of content.matchAll(pattern)) {
+    const path = match[1].trim();
+    if (path && !path.includes("..") && path.length < 240) changes.push({ path, content: match[2].replace(/^\n+|\n+$/g, "") });
+  }
+  return changes;
+}
+
+function GitHubProposalPanel({ projectId, content }: { projectId: string; content: string }) {
+  const files = useMemo(() => extractFileChanges(content), [content]);
+  const [busy, setBusy] = useState<GitHubActionMode | "approve" | "reject" | null>(null);
+  const [proposal, setProposal] = useState<GitHubActionProposal | null>(null);
+  const [message, setMessage] = useState<string | null>(null);
+  if (files.length === 0) return null;
+
+  async function propose(mode: GitHubActionMode) {
+    setBusy(mode);
+    setMessage(null);
+    try {
+      setProposal(await createGitHubProposal(projectId, "Proposed files from Chat", files, mode));
+      setMessage(mode === "auto" ? "Committed to a new GitHub branch." : mode === "manual" ? "Saved for approval." : "Proposal rejected.");
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Could not create proposal");
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function resolve(action: "approve" | "reject") {
+    if (!proposal) return;
+    setBusy(action);
+    try {
+      const result = action === "approve" ? await approveGitHubProposal(proposal.id) : await rejectGitHubProposal(proposal.id);
+      setProposal(result);
+      setMessage(action === "approve" ? "Committed to a new GitHub branch." : "Proposal rejected.");
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Could not update proposal");
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  return (
+    <div className="rounded-xl border border-amber-200 bg-amber-50/70 p-4">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <p className="text-sm font-semibold text-amber-950">File changes detected</p>
+          <p className="mt-1 text-xs text-amber-900/70">Review {files.length} proposed file{files.length === 1 ? "" : "s"} before GitHub writes.</p>
+        </div>
+        {!proposal && <div className="flex flex-wrap gap-1.5">
+          {(["auto", "manual", "reject"] as GitHubActionMode[]).map((mode) => (
+            <button key={mode} onClick={() => propose(mode)} disabled={busy !== null} className={`rounded-lg border px-2.5 py-1.5 text-xs font-semibold ${mode === "auto" ? "border-emerald-200 bg-emerald-600 text-white" : mode === "reject" ? "border-red-200 bg-white text-red-600" : "border-amber-300 bg-white text-amber-800"}`}>
+              {busy === mode ? "Saving..." : mode === "auto" ? "Auto commit" : mode === "manual" ? "Request approval" : "Reject"}
+            </button>
+          ))}
+        </div>}
+      </div>
+      <ul className="mt-3 space-y-1 text-xs text-amber-950/75">{files.map((file) => <li key={file.path} className="font-mono">{file.path}</li>)}</ul>
+      {proposal?.status === "pending" && <div className="mt-3 flex gap-2"><button onClick={() => resolve("approve")} disabled={busy !== null} className="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white">{busy === "approve" ? "Committing..." : "Approve and commit"}</button><button onClick={() => resolve("reject")} disabled={busy !== null} className="rounded-lg border border-red-200 bg-white px-3 py-1.5 text-xs font-semibold text-red-600">Reject</button></div>}
+      {(message || proposal?.branch) && <p className="mt-2 text-xs text-amber-900/75">{message}{proposal?.branch && ` Branch: ${proposal.branch}`}</p>}
+    </div>
+  );
 }
 
 // TODO: replace with the signed-in user's id once auth is wired up.
@@ -405,6 +471,7 @@ function ChatPageInner() {
                     onDiscuss={() => textareaRef.current?.focus()}
                     onToggleCards={() => toggleCards(turn.id)}
                   />
+                  {turn.response && <GitHubProposalPanel projectId={projectId} content={resolvedContent(turn) ?? ""} />}
                 </div>
               ))
             )}

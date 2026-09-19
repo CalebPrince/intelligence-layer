@@ -22,6 +22,9 @@ import type {
   IntegrationCredential,
   GitHubImportResult,
   GitHubRepository,
+  GitHubActionMode,
+  GitHubActionProposal,
+  GitHubFileChange,
   LibraryItem,
   LibraryItemDetail,
   LibraryStats,
@@ -30,7 +33,6 @@ import type {
   Project,
   ProjectStats,
   ProjectStatus,
-    GitHubActionMode,
   RoutingMode,
   UsageSummary,
   WatchStatus,
@@ -403,6 +405,33 @@ export async function importGitHubRepository(ownerId: string, owner: string, nam
     method: "POST",
   });
   if (!res.ok) throw new Error(await readError(res, "Could not import that GitHub repository"));
+  return res.json();
+}
+
+export async function createGitHubProposal(
+  projectId: string,
+  message: string,
+  files: GitHubFileChange[],
+  mode?: GitHubActionMode
+): Promise<GitHubActionProposal> {
+  const res = await fetch(`${BASE}/v1/github/projects/${projectId}/proposals`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ message, files, mode }),
+  });
+  if (!res.ok) throw new Error(await readError(res, "Could not create GitHub proposal"));
+  return res.json();
+}
+
+export async function approveGitHubProposal(proposalId: string): Promise<GitHubActionProposal> {
+  const res = await fetch(`${BASE}/v1/github/proposals/${proposalId}/approve`, { method: "POST" });
+  if (!res.ok) throw new Error(await readError(res, "Could not approve GitHub proposal"));
+  return res.json();
+}
+
+export async function rejectGitHubProposal(proposalId: string): Promise<GitHubActionProposal> {
+  const res = await fetch(`${BASE}/v1/github/proposals/${proposalId}/reject`, { method: "POST" });
+  if (!res.ok) throw new Error(await readError(res, "Could not reject GitHub proposal"));
   return res.json();
 }
 
