@@ -19,6 +19,20 @@ import {
   Zap,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
+import {
+  siAirtable,
+  siDropbox,
+  siFigma,
+  siGoogledrive,
+  siJira,
+  siStripe,
+  siSupabase,
+  siTelegram,
+  siTrello,
+  siWhatsapp,
+  siZapier,
+} from "simple-icons/icons";
+import type { SimpleIcon } from "simple-icons";
 import { deleteIntegration, getCredits, getGitHubAuthorizationUrl, getIntegrationCatalog, importGitHubRepository, listGitHubRepositories, listIntegrations, saveIntegration } from "@/lib/api";
 import type { CreditSummary, GitHubRepository, IntegrationCatalogEntry, IntegrationCredential } from "@/types";
 
@@ -54,22 +68,34 @@ interface Available {
   icon: typeof Plug;
   tone: string;
   logo?: string;
+  brand?: SimpleIcon;
+}
+
+function BrandLogo({ icon, className = "h-9 w-9" }: { icon?: SimpleIcon; className?: string }) {
+  if (!icon) return null;
+  return (
+    <span className={`flex items-center justify-center rounded-lg bg-white ${className}`} title={icon.title}>
+      <svg viewBox="0 0 24 24" className="h-[72%] w-[72%]" role="img" aria-label={icon.title} fill={`#${icon.hex}`}>
+        <path d={icon.path} />
+      </svg>
+    </span>
+  );
 }
 
 const AVAILABLE: Available[] = [
   { key: "slack", name: "Slack", description: "Get notifications, share updates and collaborate.", category: "Communication", icon: Mail, tone: "bg-[#4A154B]/10 text-[#4A154B]", logo: "/logos/slack.svg" },
-  { key: "google-drive", name: "Google Drive", description: "Access and sync your files and documents.", category: "Productivity", icon: HardDrive, tone: "bg-blue-50 text-blue-600" },
-  { key: "figma", name: "Figma", description: "Access designs and visual assets.", category: "Development", icon: Figma, tone: "bg-orange-50 text-orange-500" },
+  { key: "google-drive", name: "Google Drive", description: "Access and sync your files and documents.", category: "Productivity", icon: HardDrive, tone: "bg-blue-50 text-blue-600", brand: siGoogledrive },
+  { key: "figma", name: "Figma", description: "Access designs and visual assets.", category: "Development", icon: Figma, tone: "bg-orange-50 text-orange-500", brand: siFigma },
   { key: "linear", name: "Linear", description: "Sync issues and project tasks.", category: "Development", icon: Workflow, tone: "bg-violet-50 text-violet-600", logo: "/logos/linear.svg" },
-  { key: "jira", name: "Jira", description: "Manage tasks and track progress.", category: "Development", icon: Workflow, tone: "bg-blue-50 text-blue-600" },
-  { key: "trello", name: "Trello", description: "Sync boards and tasks.", category: "Productivity", icon: Trello, tone: "bg-blue-50 text-blue-600" },
-  { key: "dropbox", name: "Dropbox", description: "Access your files and folders.", category: "Productivity", icon: Package, tone: "bg-blue-50 text-blue-600" },
-  { key: "stripe", name: "Stripe", description: "Manage payments and subscriptions.", category: "Data", icon: CreditCard, tone: "bg-violet-50 text-violet-600" },
-  { key: "whatsapp", name: "WhatsApp", description: "Send and receive messages.", category: "Communication", icon: MessageCircle, tone: "bg-emerald-50 text-emerald-600" },
-  { key: "telegram", name: "Telegram", description: "Get notifications and alerts.", category: "Communication", icon: Send, tone: "bg-sky-50 text-sky-600" },
-  { key: "zapier", name: "Zapier", description: "Automate workflows across your tools.", category: "Automation", icon: Zap, tone: "bg-orange-50 text-orange-500" },
-  { key: "airtable", name: "Airtable", description: "Sync your data and records.", category: "Data", icon: Table2, tone: "bg-teal-50 text-teal-600" },
-  { key: "supabase", name: "Supabase", description: "Connect your database and backend.", category: "Data", icon: Database, tone: "bg-emerald-50 text-emerald-600" },
+  { key: "jira", name: "Jira", description: "Manage tasks and track progress.", category: "Development", icon: Workflow, tone: "bg-blue-50 text-blue-600", brand: siJira },
+  { key: "trello", name: "Trello", description: "Sync boards and tasks.", category: "Productivity", icon: Trello, tone: "bg-blue-50 text-blue-600", brand: siTrello },
+  { key: "dropbox", name: "Dropbox", description: "Access your files and folders.", category: "Productivity", icon: Package, tone: "bg-blue-50 text-blue-600", brand: siDropbox },
+  { key: "stripe", name: "Stripe", description: "Manage payments and subscriptions.", category: "Data", icon: CreditCard, tone: "bg-violet-50 text-violet-600", brand: siStripe },
+  { key: "whatsapp", name: "WhatsApp", description: "Send and receive messages.", category: "Communication", icon: MessageCircle, tone: "bg-emerald-50 text-emerald-600", brand: siWhatsapp },
+  { key: "telegram", name: "Telegram", description: "Get notifications and alerts.", category: "Communication", icon: Send, tone: "bg-sky-50 text-sky-600", brand: siTelegram },
+  { key: "zapier", name: "Zapier", description: "Automate workflows across your tools.", category: "Automation", icon: Zap, tone: "bg-orange-50 text-orange-500", brand: siZapier },
+  { key: "airtable", name: "Airtable", description: "Sync your data and records.", category: "Data", icon: Table2, tone: "bg-teal-50 text-teal-600", brand: siAirtable },
+  { key: "supabase", name: "Supabase", description: "Connect your database and backend.", category: "Data", icon: Database, tone: "bg-emerald-50 text-emerald-600", brand: siSupabase },
   { key: "webhooks", name: "Webhooks", description: "Send and receive webhooks.", category: "Automation", icon: Webhook, tone: "bg-rose-50 text-rose-600" },
   { key: "custom-api", name: "Custom API", description: "Connect any tool with an API.", category: "Other", icon: Braces, tone: "bg-ink/[0.06] text-ink/70" },
 ];
@@ -400,6 +426,8 @@ export default function IntegrationsPage() {
                         {a.logo ? (
                           // eslint-disable-next-line @next/next/no-img-element
                           <img src={a.logo} alt="" className="h-9 w-9 rounded-lg" />
+                        ) : a.brand ? (
+                          <BrandLogo icon={a.brand} />
                         ) : (
                           <span className={`flex h-9 w-9 items-center justify-center rounded-lg ${a.tone}`}>
                             <Icon className="h-[18px] w-[18px]" strokeWidth={1.75} />
