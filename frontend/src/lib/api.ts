@@ -42,6 +42,7 @@ import type {
   WorkspaceSettings,
   ProjectInstructions,
   WorkspaceInstructions,
+  WorkspacePreferences,
   ProjectSkill,
   McpConnection,
 } from "@/types";
@@ -166,6 +167,18 @@ export async function getWorkspaceInstructions(ownerId: string): Promise<Workspa
 export async function saveWorkspaceInstructions(ownerId: string, content: string, isActive = true): Promise<WorkspaceInstructions> {
   const res = await fetch(`${BASE}/v1/settings/instructions?owner_id=${encodeURIComponent(ownerId)}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ content, is_active: isActive }) });
   if (!res.ok) throw new Error(await readError(res, "Could not save global instructions"));
+  return res.json();
+}
+
+export async function getWorkspacePreferences(ownerId: string): Promise<WorkspacePreferences> {
+  const res = await fetch(`${BASE}/v1/settings/preferences?owner_id=${encodeURIComponent(ownerId)}`, { cache: "no-store" });
+  if (!res.ok) throw new Error(await readError(res, "Could not load workspace preferences"));
+  return res.json();
+}
+
+export async function saveWorkspacePreferences(ownerId: string, preferences: Record<string, unknown>): Promise<WorkspacePreferences> {
+  const res = await fetch(`${BASE}/v1/settings/preferences?owner_id=${encodeURIComponent(ownerId)}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ preferences }) });
+  if (!res.ok) throw new Error(await readError(res, "Could not save workspace preferences"));
   return res.json();
 }
 

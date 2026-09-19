@@ -86,6 +86,16 @@ class WorkspaceInstructions(BaseModel):
     updated_at: datetime
 
 
+class WorkspacePreferencesUpdate(BaseModel):
+    preferences: dict[str, Any]
+
+
+class WorkspacePreferences(BaseModel):
+    owner_id: str
+    preferences: dict[str, Any] = {}
+    updated_at: datetime
+
+
 class ProjectSkillCreate(BaseModel):
     name: str
     description: str

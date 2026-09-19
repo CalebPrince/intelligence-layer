@@ -62,6 +62,12 @@ export interface WorkspaceInstructions {
   updated_at: string;
 }
 
+export interface WorkspacePreferences {
+  owner_id: string;
+  preferences: Record<string, unknown>;
+  updated_at: string;
+}
+
 export interface ProjectSkill {
   id: string;
   project_id: string;

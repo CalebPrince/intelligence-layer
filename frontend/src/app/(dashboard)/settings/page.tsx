@@ -21,8 +21,8 @@ import {
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { PageHero } from "@/components/dashboard/PageHero";
-import { createMcpConnection, deleteMcpConnection, getAnalytics, getSettings, getWorkspaceInstructions, listMcpConnections, listProjects, saveWorkspaceInstructions, updateSettings } from "@/lib/api";
-import type { McpConnection, Project } from "@/types";
+import { createMcpConnection, deleteMcpConnection, getAnalytics, getCredits, getSettings, getWorkspaceInstructions, getWorkspacePreferences, listMcpConnections, listModels, listProjects, saveWorkspaceInstructions, saveWorkspacePreferences, updateSettings } from "@/lib/api";
+import type { CreditSummary, McpConnection, ModelSpec, Project } from "@/types";
 
 const CARD = "rounded-2xl border border-ink/[0.07] bg-white shadow-[0_1px_2px_rgba(11,14,20,0.03)]";
 const DEMO_OWNER_ID = "00000000-0000-0000-0000-000000000000";
@@ -121,10 +121,15 @@ export default function SettingsPage() {
   const [instructionUpdatedAt, setInstructionUpdatedAt] = useState<string | null>(null);
   const [instructionBusy, setInstructionBusy] = useState(false);
   const [instructionMessage, setInstructionMessage] = useState<string | null>(null);
+  const [preferences, setPreferences] = useState<Record<string, unknown>>({});
+  const [preferenceSaving, setPreferenceSaving] = useState(false);
+  const [preferenceMessage, setPreferenceMessage] = useState<string | null>(null);
+  const [models, setModels] = useState<ModelSpec[]>([]);
+  const [credits, setCredits] = useState<CreditSummary | null>(null);
 
   useEffect(() => {
-    Promise.all([getAnalytics(DEMO_OWNER_ID, 30), getSettings(DEMO_OWNER_ID), listProjects(DEMO_OWNER_ID), getWorkspaceInstructions(DEMO_OWNER_ID)])
-      .then(([analytics, settings, projectRows, globalInstructions]) => {
+    Promise.all([getAnalytics(DEMO_OWNER_ID, 30), getSettings(DEMO_OWNER_ID), listProjects(DEMO_OWNER_ID), getWorkspaceInstructions(DEMO_OWNER_ID), getWorkspacePreferences(DEMO_OWNER_ID), listModels(), getCredits()])
+      .then(([analytics, settings, projectRows, globalInstructions, savedPreferences, modelRows, creditSummary]) => {
         setStorageBytes(analytics.storage_bytes);
         setWorkspaceName(settings.workspace_name);
         setDefaultView(settings.default_view);
@@ -140,10 +145,23 @@ export default function SettingsPage() {
         setInstructionActive(globalInstructions.is_active);
         setInstructionVersion(globalInstructions.version);
         setInstructionUpdatedAt(globalInstructions.updated_at);
+        setPreferences(savedPreferences.preferences);
+        setModels(modelRows);
+        setCredits(creditSummary);
       })
       .catch(() => setStorageBytes(0))
       .finally(() => setSettingsLoading(false));
   }, []);
+
+  function prefString(key: string, fallback = "") { return typeof preferences[key] === "string" ? String(preferences[key]) : fallback; }
+  function prefBool(key: string, fallback = false) { return typeof preferences[key] === "boolean" ? Boolean(preferences[key]) : fallback; }
+  function setPref(key: string, value: unknown) { setPreferences((current) => ({ ...current, [key]: value })); }
+  async function persistPreferences() {
+    setPreferenceSaving(true); setPreferenceMessage(null);
+    try { const saved = await saveWorkspacePreferences(DEMO_OWNER_ID, preferences); setPreferences(saved.preferences); setPreferenceMessage("Settings saved"); }
+    catch (error) { setPreferenceMessage(error instanceof Error ? error.message : "Could not save settings"); }
+    finally { setPreferenceSaving(false); }
+  }
 
   useEffect(() => {
     if (!mcpProjectId) { setMcpConnections([]); return; }
@@ -287,16 +305,45 @@ export default function SettingsPage() {
             </div>
           </section>
         ) : tab !== "general" ? (
-          <div className={`${CARD} flex flex-col items-center px-6 py-16 text-center`}>
-            <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-blue-50 text-blue-600">
-              {(() => {
-                const Icon = TABS.find((t) => t.key === tab)!.icon;
-                return <Icon className="h-6 w-6" strokeWidth={1.75} />;
-              })()}
-            </span>
-            <p className="mt-4 font-display text-xl font-bold">{TABS.find((t) => t.key === tab)?.label} settings</p>
-            <p className="mt-1.5 max-w-md text-[14px] leading-relaxed text-ink/55">This section is coming soon.</p>
-          </div>
+          <section className={`${CARD} p-6`}>
+            <div className="flex items-center gap-3"><span className="flex h-11 w-11 items-center justify-center rounded-xl bg-blue-50 text-blue-600">{(() => { const Icon = TABS.find((t) => t.key === tab)!.icon; return <Icon className="h-5 w-5" strokeWidth={1.75}/>; })()}</span><div><p className="font-display text-lg font-bold">{TABS.find((t) => t.key === tab)?.label}</p><p className="text-[13px] text-ink/55">Workspace-level configuration saved for this account.</p></div></div>
+
+            {tab === "account" && <div className="mt-6 grid gap-5 sm:grid-cols-2">
+              <Field label="Full name" hint="Displayed in your workspace activity."><input value={prefString("profile_name", "Caleb Akakpo")} onChange={(e)=>setPref("profile_name",e.target.value)} className={INPUT_CLS}/></Field>
+              <Field label="Email address" hint="Account contact address; authentication is not enabled yet."><input type="email" value={prefString("profile_email", "caleb@princecaleb.dev")} onChange={(e)=>setPref("profile_email",e.target.value)} className={INPUT_CLS}/></Field>
+              <Field label="Timezone" hint="Used when displaying dates and activity."><select value={prefString("timezone", "Africa/Accra")} onChange={(e)=>setPref("timezone",e.target.value)} className={SELECT_CLS}><option value="Africa/Accra">GMT · Accra</option><option value="Europe/London">London</option><option value="America/New_York">New York</option><option value="America/Los_Angeles">Los Angeles</option></select></Field>
+              <Field label="Language" hint="Language used by the workspace interface."><select value={prefString("language", "en")} onChange={(e)=>setPref("language",e.target.value)} className={SELECT_CLS}><option value="en">English</option><option value="fr">French</option><option value="es">Spanish</option></select></Field>
+            </div>}
+
+            {tab === "appearance" && <div className="mt-6 grid gap-5 sm:grid-cols-2">
+              <Field label="Theme" hint="Saved now; dark-theme rendering can consume this preference later."><select value={prefString("theme","system")} onChange={(e)=>setPref("theme",e.target.value)} className={SELECT_CLS}><option value="system">Use system setting</option><option value="light">Light</option><option value="dark">Dark</option></select></Field>
+              <Field label="Density" hint="Controls how much information fits on screen."><select value={prefString("density","comfortable")} onChange={(e)=>setPref("density",e.target.value)} className={SELECT_CLS}><option value="comfortable">Comfortable</option><option value="compact">Compact</option></select></Field>
+              <Field label="Accent colour" hint="Used for workspace highlights."><select value={prefString("accent","blue")} onChange={(e)=>setPref("accent",e.target.value)} className={SELECT_CLS}><option value="blue">Blue</option><option value="violet">Violet</option><option value="emerald">Emerald</option></select></Field>
+              <div className="space-y-3"><ToggleRow title="Reduce motion" body="Minimize non-essential interface animation." on={prefBool("reduce_motion")} onChange={(v)=>setPref("reduce_motion",v)}/></div>
+            </div>}
+
+            {tab === "models" && <div className="mt-6 space-y-3">{models.map((model)=><div key={model.id} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-ink/[0.07] p-4"><div><p className="text-sm font-semibold">{model.display_name}</p><p className="mt-0.5 text-xs text-ink/45">{model.id} · {model.context_window.toLocaleString()} token context</p><div className="mt-2 flex flex-wrap gap-1.5">{model.capabilities.map((cap)=><span key={cap} className="rounded-full bg-blue-50 px-2 py-1 text-[10px] font-medium text-blue-700">{cap.replaceAll("_"," ")}</span>)}</div></div><div className="text-right"><p className={`text-xs font-semibold ${model.is_active?"text-emerald-600":"text-ink/35"}`}>{model.is_active?"Active":"No API key"}</p><p className="mt-1 text-xs text-ink/45">${model.cost_per_1k_input}/1K in · ${model.cost_per_1k_output}/1K out</p></div></div>)}</div>}
+
+            {tab === "notifications" && <div className="mt-6 grid gap-3 sm:grid-cols-2">
+              <ToggleRow title="Decision updates" body="Notify me when a decision changes status." on={prefBool("notify_decisions",true)} onChange={(v)=>setPref("notify_decisions",v)}/>
+              <ToggleRow title="Agent completions" body="Notify me when delegated agent work finishes." on={prefBool("notify_agents",true)} onChange={(v)=>setPref("notify_agents",v)}/>
+              <ToggleRow title="Integration failures" body="Alert me when a connected service stops working." on={prefBool("notify_integrations",true)} onChange={(v)=>setPref("notify_integrations",v)}/>
+              <ToggleRow title="Weekly digest" body="Receive a weekly workspace activity summary." on={prefBool("notify_digest")} onChange={(v)=>setPref("notify_digest",v)}/>
+            </div>}
+
+            {tab === "security" && <div className="mt-6 grid gap-3 sm:grid-cols-2">
+              <ToggleRow title="Confirm external writes" body="Require approval before tools change external systems." on={prefBool("confirm_external_writes",true)} onChange={(v)=>setPref("confirm_external_writes",v)}/>
+              <ToggleRow title="Restrict MCP to allowlists" body="Only expose explicitly allowed remote MCP tools." on={prefBool("strict_mcp_allowlists",true)} onChange={(v)=>setPref("strict_mcp_allowlists",v)}/>
+              <ToggleRow title="Record tool audit logs" body="Keep arguments, outcomes, and errors for tool calls." on={prefBool("tool_audit_logs",true)} onChange={(v)=>setPref("tool_audit_logs",v)}/>
+              <Field label="Session timeout" hint="Preferred inactivity timeout for future authenticated sessions."><select value={prefString("session_timeout","8h")} onChange={(e)=>setPref("session_timeout",e.target.value)} className={SELECT_CLS}><option value="1h">1 hour</option><option value="8h">8 hours</option><option value="24h">24 hours</option></select></Field>
+            </div>}
+
+            {tab === "team" && <div className="mt-6 space-y-5"><div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-[13px] text-amber-800">Authentication and invitation delivery are not configured. These fields save the intended team policy without claiming an invitation was sent.</div><div className="grid gap-5 sm:grid-cols-2"><Field label="Default role" hint="Applied when team invitations become available."><select value={prefString("team_default_role","member")} onChange={(e)=>setPref("team_default_role",e.target.value)} className={SELECT_CLS}><option value="viewer">Viewer</option><option value="member">Member</option><option value="admin">Admin</option></select></Field><Field label="Allowed email domains" hint="Comma-separated; blank allows any domain."><input value={prefString("team_domains")} onChange={(e)=>setPref("team_domains",e.target.value)} placeholder="company.com, partner.org" className={INPUT_CLS}/></Field></div><ToggleRow title="Members can create projects" body="Allow non-admin members to create new projects." on={prefBool("members_create_projects",true)} onChange={(v)=>setPref("members_create_projects",v)}/></div>}
+
+            {tab === "billing" && <div className="mt-6"><div className="grid gap-4 sm:grid-cols-3"><div className="rounded-xl bg-[#FAFBFD] p-4"><p className="text-xs text-ink/45">Lifetime API spend</p><p className="mt-1 font-display text-2xl font-bold">${(credits?.lifetime_spend_usd??0).toFixed(2)}</p></div><div className="rounded-xl bg-[#FAFBFD] p-4"><p className="text-xs text-ink/45">Tracked balance</p><p className="mt-1 font-display text-2xl font-bold">${(credits?.total_balance_usd??0).toFixed(2)}</p></div><div className="rounded-xl bg-[#FAFBFD] p-4"><p className="text-xs text-ink/45">Estimated remaining</p><p className="mt-1 font-display text-2xl font-bold">${(credits?.total_remaining_usd??0).toFixed(2)}</p></div></div><div className="mt-4 space-y-2">{credits?.providers.map((provider)=><div key={provider.provider} className="flex items-center justify-between rounded-xl border border-ink/[0.07] px-4 py-3"><div><p className="text-sm font-semibold">{provider.label}</p><p className="text-xs text-ink/45">Key status: {provider.key_status}</p></div><p className="text-sm font-semibold">{provider.remaining_usd===null?"Not tracked":`$${provider.remaining_usd.toFixed(2)} remaining`}</p></div>)}</div><p className="mt-4 text-xs leading-relaxed text-ink/45">Balances are estimates based on amounts entered in Inteli-Space minus usage recorded by this application. Provider-wide billing is not available from standard API keys.</p></div>}
+
+            {tab !== "models" && tab !== "billing" && <div className="mt-6 flex items-center justify-end gap-3 border-t border-ink/[0.06] pt-4">{preferenceMessage && <p className={`text-xs ${preferenceMessage==="Settings saved"?"text-emerald-600":"text-rose-600"}`}>{preferenceMessage}</p>}<button type="button" onClick={persistPreferences} disabled={preferenceSaving} className="rounded-lg bg-blue-600 px-4 py-2 text-[13px] font-semibold text-white hover:bg-blue-700 disabled:opacity-50">{preferenceSaving?"Saving...":"Save settings"}</button></div>}
+          </section>
         ) : (
           <section className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
             <div className="flex flex-col gap-4">

@@ -279,6 +279,12 @@ CREATE TABLE IF NOT EXISTS workspace_instructions (
   updated_at  TEXT NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS workspace_preferences (
+  owner_id    TEXT PRIMARY KEY,
+  preferences TEXT NOT NULL DEFAULT '{}',
+  updated_at  TEXT NOT NULL
+);
+
 -- Project skills use progressive disclosure: name/description are considered
 -- first and the full instructions are injected only when a skill is selected.
 CREATE TABLE IF NOT EXISTS project_skills (

@@ -1558,6 +1558,25 @@ def set_workspace_instructions(owner_id: str, content: str, is_active: bool) -> 
     return get_workspace_instructions(owner_id)
 
 
+def get_workspace_preferences(owner_id: str) -> dict[str, Any]:
+    with get_connection() as conn:
+        row = conn.execute("SELECT * FROM workspace_preferences WHERE owner_id = ?", (owner_id,)).fetchone()
+    if row:
+        return {"owner_id": owner_id, "preferences": json.loads(row["preferences"] or "{}"), "updated_at": row["updated_at"]}
+    return {"owner_id": owner_id, "preferences": {}, "updated_at": _now()}
+
+
+def set_workspace_preferences(owner_id: str, preferences: dict[str, Any]) -> dict[str, Any]:
+    now = _now()
+    with get_connection() as conn:
+        conn.execute(
+            "INSERT INTO workspace_preferences (owner_id, preferences, updated_at) VALUES (?, ?, ?) "
+            "ON CONFLICT(owner_id) DO UPDATE SET preferences = excluded.preferences, updated_at = excluded.updated_at",
+            (owner_id, json.dumps(preferences), now),
+        )
+    return get_workspace_preferences(owner_id)
+
+
 def _skill_row(row: sqlite3.Row) -> dict[str, Any]:
     value = dict(row)
     value["tool_names"] = json.loads(value.get("tool_names") or "[]")

@@ -45,7 +45,7 @@ function isFileCreationRequest(text: string): boolean {
   return /\b(create|build|implement|add|generate|scaffold|make)\b[\s\S]*\b(file|page|component|feature|app|project|api|route|endpoint|form|screen)\b/i.test(text);
 }
 
-function addressedProvider(text: string): string | undefined {
+function addressedProviders(text: string): string[] {
   const matches = new Set<string>();
   const names: Array<[string, RegExp]> = [
     ["anthropic", /\b(?:claude|anthropic)\b/i],
@@ -55,7 +55,7 @@ function addressedProvider(text: string): string | undefined {
   for (const [provider, pattern] of names) {
     if (pattern.test(text)) matches.add(provider);
   }
-  return matches.size === 1 ? [...matches][0] : undefined;
+  return [...matches];
 }
 
 const FILE_PROPOSAL_INSTRUCTION = `When this request asks you to create or modify project files, return a proposed file set for review. For each proposed file, use a fenced block whose first line is exactly FILE: relative/path.ext, followed by the complete file content. Do not claim files were written; they will be reviewed before a GitHub branch is created.`;
@@ -346,14 +346,18 @@ function ChatPageInner() {
     setTurns((prev) => [...prev, { id: turnId, prompt: text, sentAt: new Date().toISOString(), loading: true, compareOpen: true }]);
     setPrompt("");
 
-    let { mode, explicitModels } = selectionToCriteria(selection);
-    const addressed = addressedProvider(text);
-    if (addressed) {
-      const addressedModel = providerModel[addressed]?.id;
-      if (addressedModel) {
-        mode = "single";
-        explicitModels = [addressedModel];
-      }
+    let mode: RoutingMode = "parallel";
+    let explicitModels: string[] | undefined;
+    const addressed = addressedProviders(text);
+    const addressedModels = addressed
+      .map((provider) => providerModel[provider]?.id)
+      .filter((modelId): modelId is string => !!modelId);
+    if (addressedModels.length === 1) {
+      mode = "single";
+      explicitModels = addressedModels;
+    } else if (addressedModels.length > 1) {
+      mode = "deliberation";
+      explicitModels = addressedModels;
     }
     const fileRequest = isFileCreationRequest(text);
 
