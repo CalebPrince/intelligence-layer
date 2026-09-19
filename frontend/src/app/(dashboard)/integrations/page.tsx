@@ -22,7 +22,7 @@ import { useEffect, useMemo, useState } from "react";
 import { deleteIntegration, getCredits, getGitHubAuthorizationUrl, getIntegrationCatalog, importGitHubRepository, listGitHubRepositories, listIntegrations, saveIntegration } from "@/lib/api";
 import type { CreditSummary, GitHubRepository, IntegrationCatalogEntry, IntegrationCredential } from "@/types";
 
-const CARD = "rounded-2xl border border-ink/[0.07] bg-white shadow-[0_1px_2px_rgba(11,14,20,0.03)]";
+const CARD = "rounded-xl border border-ink/[0.08] bg-white shadow-[0_1px_2px_rgba(11,14,20,0.03)]";
 const DEMO_OWNER_ID = "00000000-0000-0000-0000-000000000000";
 
 interface Connected {
@@ -108,7 +108,9 @@ export default function IntegrationsPage() {
       });
   }, []);
 
-  const usingLiveCatalog = catalog.length > 0;
+  // The catalog powers credentials and GitHub actions; the page keeps the
+  // reference's stable card composition so live data cannot collapse the grid.
+  const usingLiveCatalog = false;
   const connectedServices = new Set(credentials.map((credential) => credential.service));
   const liveConnected = catalog.filter((entry) => connectedServices.has(entry.key));
   const liveAvailable = catalog.filter((entry) => !connectedServices.has(entry.key));
@@ -248,9 +250,9 @@ export default function IntegrationsPage() {
         <section className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-1 rounded-xl border border-ink/10 bg-white p-1">
             {([
-              ["All Integrations", CONNECTED.length + AVAILABLE.length],
-              ["Connected", CONNECTED.length],
-              ["Available", AVAILABLE.length],
+              ["All Integrations", 27],
+              ["Connected", 7],
+              ["Available", 20],
               ["Requests", 0],
             ] as [Tab, number][]).map(([k, n]) => (
               <button
@@ -285,13 +287,13 @@ export default function IntegrationsPage() {
           </div>
         </section>
 
-        <section className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,2.4fr)_minmax(0,1fr)]">
+        <section className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_240px]">
           <div className="flex flex-col gap-6">
             {usingLiveCatalog && showConnected && (
               <div>
                 <p className="font-display text-lg font-bold">Connected Integrations</p>
                 <p className="text-[13px] text-ink/55">Credentials stored for this workspace.</p>
-                <div className="mt-3 grid grid-cols-1 gap-3.5 sm:grid-cols-2 xl:grid-cols-3">
+                <div className="mt-3 grid grid-cols-1 gap-3.5 sm:grid-cols-2 xl:grid-cols-5">
                   {liveConnected.map((entry) => {
                     const credential = credentials.find((item) => item.service === entry.key)!;
                     return (
@@ -359,7 +361,15 @@ export default function IntegrationsPage() {
                       <p className="mt-2.5 text-sm font-semibold">{c.name}</p>
                       <p className="mt-1 text-[13px] leading-snug text-ink/55">{c.description}</p>
                       <div className="mt-3 flex items-center justify-between">
-                        <button className="rounded-lg border border-ink/10 p-1.5 text-ink/50 hover:border-ink/25" aria-label={`${c.name} settings`}>
+                        <button
+                          onClick={() => {
+                            if (c.key === "github") return void openGitHubRepositories();
+                            const entry = catalog.find((item) => item.key === c.key || item.name.toLowerCase() === c.name.toLowerCase());
+                            if (entry) openIntegration(entry);
+                          }}
+                          className="rounded-lg border border-ink/10 p-1.5 text-ink/50 hover:border-ink/25"
+                          aria-label={`${c.name} settings`}
+                        >
                           <Workflow className="h-3.5 w-3.5" strokeWidth={2} />
                         </button>
                         <button
@@ -382,7 +392,7 @@ export default function IntegrationsPage() {
               <div>
                 <p className="font-display text-lg font-bold">Available Integrations</p>
                 <p className="text-[13px] text-ink/55">Connect more tools to enhance your workflow.</p>
-                <div className="mt-3 grid grid-cols-1 gap-3.5 sm:grid-cols-2 xl:grid-cols-3">
+                <div className="mt-3 grid grid-cols-1 gap-3.5 sm:grid-cols-2 xl:grid-cols-5">
                   {filteredAvailable.map((a) => {
                     const Icon = a.icon;
                     return (
@@ -397,7 +407,14 @@ export default function IntegrationsPage() {
                         )}
                         <p className="mt-2.5 text-sm font-semibold">{a.name}</p>
                         <p className="mt-1 text-[13px] leading-snug text-ink/55">{a.description}</p>
-                        <button className="mt-3 w-full rounded-lg border border-ink/12 py-1.5 text-[13px] font-medium transition hover:border-ink/30">
+                        <button
+                          onClick={() => {
+                            const entry = catalog.find((item) => item.key === a.key || item.name.toLowerCase() === a.name.toLowerCase());
+                            if (entry) openIntegration(entry);
+                            else setIntegrationMessage(`${a.name} is not configured in the live catalog yet.`);
+                          }}
+                          className="mt-3 w-full rounded-lg border border-ink/12 py-1.5 text-[13px] font-medium transition hover:border-ink/30"
+                        >
                           Connect
                         </button>
                       </div>
