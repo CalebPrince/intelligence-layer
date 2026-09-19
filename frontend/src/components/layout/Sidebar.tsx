@@ -38,6 +38,7 @@ const NAV: { href: string; label: string; icon: LucideIcon }[] = [
   { href: "/decisions", label: "Decisions", icon: PlusCircle },
   { href: "/context", label: "Context", icon: LayoutGrid },
   { href: "/activity", label: "Activity", icon: PlusCircle },
+  { href: "/project-setup", label: "Instructions & Tools", icon: Settings },
 ];
 
 // Workspace-level pages (no single project in scope) get the workspace sidebar.

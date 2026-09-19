@@ -22,6 +22,7 @@ from app.api.insights import router as insights_router
 from app.api.github import router as github_router
 from app.api.milestones import router as milestones_router
 from app.api.projects import router as projects_router
+from app.api.project_intelligence import router as project_intelligence_router
 from app.api.settings_api import router as settings_router
 from app.api.watch import router as watch_router
 from app.config import get_settings
@@ -79,6 +80,7 @@ app.include_router(insights_router)
 app.include_router(github_router)
 app.include_router(milestones_router)
 app.include_router(projects_router)
+app.include_router(project_intelligence_router)
 app.include_router(settings_router)
 app.include_router(watch_router)
 

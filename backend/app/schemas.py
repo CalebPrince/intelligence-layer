@@ -38,6 +38,8 @@ class ChatRequest(BaseModel):
     messages: list[ChatMessage]
     criteria: RoutingCriteria = RoutingCriteria()
     include_project_context: bool = True
+    enable_tools: bool = True
+    max_tool_rounds: int = 4
 
 
 class ModelResponse(BaseModel):
@@ -53,6 +55,70 @@ class ModelResponse(BaseModel):
     latency_ms: int = 0
     success: bool = True
     error: Optional[str] = None
+    tool_calls: list[dict[str, Any]] = []
+
+
+class ProjectInstructionsUpdate(BaseModel):
+    content: str
+    is_active: bool = True
+
+
+class ProjectInstructions(BaseModel):
+    project_id: str
+    content: str
+    version: int = 1
+    is_active: bool = True
+    created_at: datetime
+    updated_at: datetime
+
+
+class WorkspaceInstructionsUpdate(BaseModel):
+    content: str
+    is_active: bool = True
+
+
+class WorkspaceInstructions(BaseModel):
+    owner_id: str
+    content: str
+    version: int = 1
+    is_active: bool = True
+    created_at: datetime
+    updated_at: datetime
+
+
+class ProjectSkillCreate(BaseModel):
+    name: str
+    description: str
+    instructions: str
+    tool_names: list[str] = []
+    is_enabled: bool = True
+
+
+class ProjectSkill(ProjectSkillCreate):
+    id: str
+    project_id: str
+    created_at: datetime
+    updated_at: datetime
+
+
+class McpConnectionCreate(BaseModel):
+    name: str
+    url: str
+    headers: dict[str, str] = {}
+    allowed_tools: list[str] = []
+    is_enabled: bool = True
+
+
+class McpConnection(BaseModel):
+    id: str
+    project_id: str
+    name: str
+    url: str
+    header_names: list[str] = []
+    allowed_tools: list[str] = []
+    is_enabled: bool = True
+    created_at: datetime
+    updated_at: datetime
 
 
 class ContextUsed(BaseModel):

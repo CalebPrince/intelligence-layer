@@ -259,3 +259,68 @@ CREATE TABLE IF NOT EXISTS github_action_proposals (
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL
 );
+
+-- Durable instructions shared by every model and agent working on a project.
+CREATE TABLE IF NOT EXISTS project_instructions (
+  project_id  TEXT PRIMARY KEY REFERENCES projects(id) ON DELETE CASCADE,
+  content     TEXT NOT NULL DEFAULT '',
+  version     INTEGER NOT NULL DEFAULT 1,
+  is_active   INTEGER NOT NULL DEFAULT 1,
+  created_at  TEXT NOT NULL,
+  updated_at  TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS workspace_instructions (
+  owner_id    TEXT PRIMARY KEY,
+  content     TEXT NOT NULL DEFAULT '',
+  version     INTEGER NOT NULL DEFAULT 1,
+  is_active   INTEGER NOT NULL DEFAULT 1,
+  created_at  TEXT NOT NULL,
+  updated_at  TEXT NOT NULL
+);
+
+-- Project skills use progressive disclosure: name/description are considered
+-- first and the full instructions are injected only when a skill is selected.
+CREATE TABLE IF NOT EXISTS project_skills (
+  id           TEXT PRIMARY KEY,
+  project_id   TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+  name         TEXT NOT NULL,
+  description  TEXT NOT NULL,
+  instructions TEXT NOT NULL,
+  tool_names   TEXT NOT NULL DEFAULT '[]',
+  is_enabled   INTEGER NOT NULL DEFAULT 1,
+  created_at   TEXT NOT NULL,
+  updated_at   TEXT NOT NULL,
+  UNIQUE(project_id, name)
+);
+CREATE INDEX IF NOT EXISTS project_skills_project_idx ON project_skills(project_id, is_enabled);
+
+-- Remote MCP servers are scoped to one project. Headers are stored as JSON;
+-- API responses redact their values.
+CREATE TABLE IF NOT EXISTS mcp_connections (
+  id            TEXT PRIMARY KEY,
+  project_id    TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+  name          TEXT NOT NULL,
+  url           TEXT NOT NULL,
+  headers       TEXT NOT NULL DEFAULT '{}',
+  allowed_tools TEXT NOT NULL DEFAULT '[]',
+  is_enabled    INTEGER NOT NULL DEFAULT 1,
+  created_at    TEXT NOT NULL,
+  updated_at    TEXT NOT NULL,
+  UNIQUE(project_id, name)
+);
+CREATE INDEX IF NOT EXISTS mcp_connections_project_idx ON mcp_connections(project_id, is_enabled);
+
+CREATE TABLE IF NOT EXISTS tool_executions (
+  id          TEXT PRIMARY KEY,
+  project_id  TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+  message_id  TEXT,
+  model_id    TEXT NOT NULL,
+  tool_name   TEXT NOT NULL,
+  arguments   TEXT NOT NULL DEFAULT '{}',
+  output      TEXT,
+  success     INTEGER NOT NULL,
+  error       TEXT,
+  created_at  TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS tool_executions_project_idx ON tool_executions(project_id, created_at);

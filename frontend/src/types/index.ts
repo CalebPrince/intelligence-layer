@@ -41,6 +41,49 @@ export interface ModelResponse {
   latency_ms: number;
   success: boolean;
   error?: string;
+  tool_calls?: { name: string; arguments: Record<string, unknown>; success: boolean }[];
+}
+
+export interface ProjectInstructions {
+  project_id: string;
+  content: string;
+  version: number;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface WorkspaceInstructions {
+  owner_id: string;
+  content: string;
+  version: number;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ProjectSkill {
+  id: string;
+  project_id: string;
+  name: string;
+  description: string;
+  instructions: string;
+  tool_names: string[];
+  is_enabled: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface McpConnection {
+  id: string;
+  project_id: string;
+  name: string;
+  url: string;
+  header_names: string[];
+  allowed_tools: string[];
+  is_enabled: boolean;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface ContextUsed {

@@ -4,7 +4,7 @@ so this is scoped to DEMO_OWNER_ID like everything else."""
 from fastapi import APIRouter, Query
 
 from app import database
-from app.schemas import WorkspaceSettings, WorkspaceSettingsUpdate
+from app.schemas import WorkspaceInstructions, WorkspaceInstructionsUpdate, WorkspaceSettings, WorkspaceSettingsUpdate
 
 router = APIRouter(prefix="/v1/settings", tags=["settings"])
 
@@ -18,3 +18,13 @@ async def get_settings(owner_id: str = Query(...)) -> dict:
 async def update_settings(req: WorkspaceSettingsUpdate, owner_id: str = Query(...)) -> dict:
     fields = {k: v for k, v in req.model_dump().items() if v is not None}
     return database.update_settings(owner_id, fields)
+
+
+@router.get("/instructions", response_model=WorkspaceInstructions)
+async def get_instructions(owner_id: str = Query(...)) -> dict:
+    return database.get_workspace_instructions(owner_id)
+
+
+@router.put("/instructions", response_model=WorkspaceInstructions)
+async def update_instructions(req: WorkspaceInstructionsUpdate, owner_id: str = Query(...)) -> dict:
+    return database.set_workspace_instructions(owner_id, req.content, req.is_active)

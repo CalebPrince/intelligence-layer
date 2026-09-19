@@ -14,12 +14,14 @@ Three jobs:
                                   one synthesized result
 """
 import asyncio
+import json
 import time
 
 import litellm
 
 from app.config import ModelSpec, RoutingMode, Settings, MODEL_REGISTRY, get_settings
 from app.schemas import ChatMessage, ModelResponse, RoutingCriteria
+from app.tool_runtime import RuntimeTool, execute_tool
 
 litellm.drop_params = True  # ignore provider-unsupported params instead of raising
 
@@ -101,34 +103,72 @@ async def _call_model(
     messages: list[ChatMessage],
     settings: Settings,
     phase: str = "initial",
+    project_id: str | None = None,
+    tools: list[RuntimeTool] | None = None,
+    max_tool_rounds: int = 4,
 ) -> ModelResponse:
     start = time.perf_counter()
     api_key = _provider_key(settings, model.provider)
+    wire_messages: list[dict] = [m.model_dump() for m in messages]
     kwargs = {
         "model": model.id,
-        "messages": [m.model_dump() for m in messages],
+        "messages": wire_messages,
         "api_key": api_key,
     }
+    if tools:
+        kwargs["tools"] = [tool.definition for tool in tools]
+        kwargs["tool_choice"] = "auto"
     if model.provider == "anthropic" and settings.anthropic_workspace_id:
         kwargs["extra_headers"] = {"anthropic-workspace-id": settings.anthropic_workspace_id}
     try:
         result = None
-        for attempt in range(2):
-            try:
-                result = await litellm.acompletion(**kwargs)
+        total_in = total_out = 0
+        tool_trace: list[dict] = []
+        tool_map = {tool.definition["function"]["name"]: tool for tool in tools or []}
+        for tool_round in range(max(1, min(max_tool_rounds, 8)) + 1):
+            kwargs["messages"] = wire_messages
+            for attempt in range(2):
+                try:
+                    result = await litellm.acompletion(**kwargs)
+                    break
+                except Exception as exc:
+                    transient = any(marker in str(exc) for marker in (" 429", " 503", "rate_limit", "UNAVAILABLE", "temporarily"))
+                    if attempt == 0 and transient:
+                        await asyncio.sleep(0.8)
+                        continue
+                    raise
+            if result is None:
+                raise RuntimeError("Model returned no result")
+            usage = result.usage
+            total_in += getattr(usage, "prompt_tokens", 0) or 0
+            total_out += getattr(usage, "completion_tokens", 0) or 0
+            answer = result.choices[0].message
+            calls = getattr(answer, "tool_calls", None) or []
+            if not calls:
                 break
-            except Exception as exc:
-                transient = any(marker in str(exc) for marker in (" 429", " 503", "rate_limit", "UNAVAILABLE", "temporarily"))
-                if attempt == 0 and transient:
-                    await asyncio.sleep(0.8)
-                    continue
-                raise
+            if tool_round >= max_tool_rounds:
+                raise RuntimeError("Model exceeded the tool-call round limit")
+            assistant_calls = []
+            for call in calls:
+                function = getattr(call, "function", None)
+                name = getattr(function, "name", "")
+                raw_arguments = getattr(function, "arguments", "{}") or "{}"
+                try:
+                    arguments = json.loads(raw_arguments) if isinstance(raw_arguments, str) else dict(raw_arguments)
+                except (ValueError, TypeError):
+                    arguments = {}
+                call_id = getattr(call, "id", f"call_{len(tool_trace)}")
+                assistant_calls.append({"id": call_id, "type": "function", "function": {"name": name, "arguments": json.dumps(arguments)}})
+                runtime_tool = tool_map.get(name)
+                output = (await execute_tool(project_id, model.id, runtime_tool, arguments)) if project_id and runtime_tool else json.dumps({"error": "Tool is not available"})
+                wire_messages.append({"role": "tool", "tool_call_id": call_id, "name": name, "content": output})
+                tool_trace.append({"name": name, "arguments": arguments, "success": '"error"' not in output})
+            wire_messages.insert(len(wire_messages) - len(assistant_calls), {"role": "assistant", "content": getattr(answer, "content", None), "tool_calls": assistant_calls})
         if result is None:
             raise RuntimeError("Model returned no result")
         latency_ms = int((time.perf_counter() - start) * 1000)
-        usage = result.usage
-        tokens_in = getattr(usage, "prompt_tokens", 0) or 0
-        tokens_out = getattr(usage, "completion_tokens", 0) or 0
+        tokens_in = total_in
+        tokens_out = total_out
         cost = (tokens_in / 1000) * model.cost_per_1k_input + (tokens_out / 1000) * model.cost_per_1k_output
         return ModelResponse(
             model_id=model.id,
@@ -141,6 +181,7 @@ async def _call_model(
             cost_usd=round(cost, 6),
             latency_ms=latency_ms,
             success=True,
+            tool_calls=tool_trace,
         )
     except Exception as exc:  # noqa: BLE001 — surfaced to caller as a failed ModelResponse, not raised
         latency_ms = int((time.perf_counter() - start) * 1000)
@@ -169,6 +210,9 @@ async def _run_critique_round(
     candidates: list[ModelSpec],
     messages: list[ChatMessage],
     settings: Settings,
+    project_id: str | None = None,
+    tools: list[RuntimeTool] | None = None,
+    max_tool_rounds: int = 4,
 ) -> list[ModelResponse]:
     """Each model that answered sees the others' answers and is asked to
     challenge, defend, or revise its own — the "models inspect other models'
@@ -197,7 +241,7 @@ async def _run_critique_round(
                 ),
             ),
         ]
-        tasks.append(_call_model(model, critique_messages, settings, phase="critique"))
+        tasks.append(_call_model(model, critique_messages, settings, phase="critique", project_id=project_id, tools=tools, max_tool_rounds=max_tool_rounds))
     return list(await asyncio.gather(*tasks)) if tasks else []
 
 
@@ -208,6 +252,9 @@ async def _run_synthesis(
     messages: list[ChatMessage],
     settings: Settings,
     synthesizer_model_id: str | None,
+    project_id: str | None = None,
+    tools: list[RuntimeTool] | None = None,
+    max_tool_rounds: int = 4,
 ) -> ModelResponse | None:
     """One model produces the final, reconciled answer from every perspective."""
     pool = critiques or initial
@@ -230,7 +277,7 @@ async def _run_synthesis(
             ),
         ),
     ]
-    return await _call_model(synthesizer, synthesis_messages, settings, phase="synthesis")
+    return await _call_model(synthesizer, synthesis_messages, settings, phase="synthesis", project_id=project_id, tools=tools, max_tool_rounds=max_tool_rounds)
 
 
 async def route_and_complete(
@@ -238,6 +285,9 @@ async def route_and_complete(
     criteria: RoutingCriteria,
     settings: Settings | None = None,
     affinity: dict[str, int] | None = None,
+    project_id: str | None = None,
+    tools: list[RuntimeTool] | None = None,
+    max_tool_rounds: int = 4,
 ) -> tuple[list[ModelResponse], str | None, ModelResponse | None]:
     """Returns (responses, chosen_model_id, synthesis).
     - SINGLE: responses is the fallback trail (usually length 1); chosen_model_id
@@ -250,21 +300,21 @@ async def route_and_complete(
     candidates = select_models(criteria, affinity=affinity)
 
     if criteria.mode == RoutingMode.PARALLEL:
-        responses = await asyncio.gather(*(_call_model(m, messages, settings) for m in candidates))
+        responses = await asyncio.gather(*(_call_model(m, messages, settings, project_id=project_id, tools=tools, max_tool_rounds=max_tool_rounds) for m in candidates))
         return list(responses), None, None
 
     if criteria.mode == RoutingMode.DELIBERATION:
-        initial = list(await asyncio.gather(*(_call_model(m, messages, settings) for m in candidates)))
-        critiques = await _run_critique_round(initial, candidates, messages, settings)
+        initial = list(await asyncio.gather(*(_call_model(m, messages, settings, project_id=project_id, tools=tools, max_tool_rounds=max_tool_rounds) for m in candidates)))
+        critiques = await _run_critique_round(initial, candidates, messages, settings, project_id, tools, max_tool_rounds)
         synthesis = await _run_synthesis(
-            initial, critiques, candidates, messages, settings, criteria.synthesizer_model
+            initial, critiques, candidates, messages, settings, criteria.synthesizer_model, project_id, tools, max_tool_rounds
         )
         return initial + critiques, None, synthesis
 
     # SINGLE — walk the ranked list until one call succeeds
     attempts: list[ModelResponse] = []
     for model in candidates:
-        resp = await _call_model(model, messages, settings)
+        resp = await _call_model(model, messages, settings, project_id=project_id, tools=tools, max_tool_rounds=max_tool_rounds)
         attempts.append(resp)
         if resp.success:
             return attempts, resp.model_id, None

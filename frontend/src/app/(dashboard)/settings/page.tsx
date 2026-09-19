@@ -8,7 +8,10 @@ import {
   Database,
   Download,
   Folder,
+  FileText,
   Palette,
+  Plug,
+  Plus,
   RotateCcw,
   Settings as SettingsIcon,
   Shield,
@@ -18,7 +21,8 @@ import {
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { PageHero } from "@/components/dashboard/PageHero";
-import { getAnalytics, getSettings, updateSettings } from "@/lib/api";
+import { createMcpConnection, deleteMcpConnection, getAnalytics, getSettings, getWorkspaceInstructions, listMcpConnections, listProjects, saveWorkspaceInstructions, updateSettings } from "@/lib/api";
+import type { McpConnection, Project } from "@/types";
 
 const CARD = "rounded-2xl border border-ink/[0.07] bg-white shadow-[0_1px_2px_rgba(11,14,20,0.03)]";
 const DEMO_OWNER_ID = "00000000-0000-0000-0000-000000000000";
@@ -29,6 +33,8 @@ const TABS = [
   { key: "account", label: "Account", icon: CircleUserRound },
   { key: "appearance", label: "Appearance", icon: Palette },
   { key: "models", label: "Models", icon: Database },
+  { key: "instructions", label: "Global Instructions", icon: FileText },
+  { key: "mcp", label: "MCP Connections", icon: Plug },
   { key: "notifications", label: "Notifications", icon: Bell },
   { key: "security", label: "Security", icon: Shield },
   { key: "team", label: "Team", icon: Users },
@@ -103,10 +109,22 @@ export default function SettingsPage() {
   const [settingsLoading, setSettingsLoading] = useState(true);
   const [settingsSaving, setSettingsSaving] = useState(false);
   const [settingsMessage, setSettingsMessage] = useState<string | null>(null);
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [mcpProjectId, setMcpProjectId] = useState("");
+  const [mcpConnections, setMcpConnections] = useState<McpConnection[]>([]);
+  const [mcpForm, setMcpForm] = useState({ name: "", url: "", headers: "", tools: "" });
+  const [mcpBusy, setMcpBusy] = useState(false);
+  const [mcpMessage, setMcpMessage] = useState<string | null>(null);
+  const [instructionContent, setInstructionContent] = useState("");
+  const [instructionActive, setInstructionActive] = useState(true);
+  const [instructionVersion, setInstructionVersion] = useState(0);
+  const [instructionUpdatedAt, setInstructionUpdatedAt] = useState<string | null>(null);
+  const [instructionBusy, setInstructionBusy] = useState(false);
+  const [instructionMessage, setInstructionMessage] = useState<string | null>(null);
 
   useEffect(() => {
-    Promise.all([getAnalytics(DEMO_OWNER_ID, 30), getSettings(DEMO_OWNER_ID)])
-      .then(([analytics, settings]) => {
+    Promise.all([getAnalytics(DEMO_OWNER_ID, 30), getSettings(DEMO_OWNER_ID), listProjects(DEMO_OWNER_ID), getWorkspaceInstructions(DEMO_OWNER_ID)])
+      .then(([analytics, settings, projectRows, globalInstructions]) => {
         setStorageBytes(analytics.storage_bytes);
         setWorkspaceName(settings.workspace_name);
         setDefaultView(settings.default_view);
@@ -116,10 +134,57 @@ export default function SettingsPage() {
         setMultiModel(settings.multi_model_default);
         setAutoDecisions(settings.auto_save_decisions);
         setIncludeFiles(settings.include_files_context);
+        setProjects(projectRows);
+        setMcpProjectId(projectRows[0]?.id ?? "");
+        setInstructionContent(globalInstructions.content);
+        setInstructionActive(globalInstructions.is_active);
+        setInstructionVersion(globalInstructions.version);
+        setInstructionUpdatedAt(globalInstructions.updated_at);
       })
       .catch(() => setStorageBytes(0))
       .finally(() => setSettingsLoading(false));
   }, []);
+
+  useEffect(() => {
+    if (!mcpProjectId) { setMcpConnections([]); return; }
+    listMcpConnections(mcpProjectId).then(setMcpConnections).catch((error) => setMcpMessage(error instanceof Error ? error.message : "Could not load MCP connections"));
+  }, [mcpProjectId]);
+
+  async function saveInstructions() {
+    setInstructionBusy(true); setInstructionMessage(null);
+    try {
+      const saved = await saveWorkspaceInstructions(DEMO_OWNER_ID, instructionContent, instructionActive);
+      setInstructionVersion(saved.version); setInstructionUpdatedAt(saved.updated_at); setInstructionMessage("Global instructions saved");
+    } catch (error) { setInstructionMessage(error instanceof Error ? error.message : "Could not save global instructions"); }
+    finally { setInstructionBusy(false); }
+  }
+
+  async function addMcpConnection() {
+    if (!mcpProjectId || !mcpForm.name.trim() || !mcpForm.url.trim()) return;
+    setMcpBusy(true); setMcpMessage(null);
+    try {
+      const headers = mcpForm.headers.trim() ? JSON.parse(mcpForm.headers) : {};
+      await createMcpConnection(mcpProjectId, {
+        name: mcpForm.name.trim(), url: mcpForm.url.trim(), headers,
+        allowed_tools: mcpForm.tools.split(",").map((value) => value.trim()).filter(Boolean), is_enabled: true,
+      });
+      setMcpForm({ name: "", url: "", headers: "", tools: "" });
+      setMcpConnections(await listMcpConnections(mcpProjectId));
+      setMcpMessage("MCP connection added");
+    } catch (error) { setMcpMessage(error instanceof Error ? error.message : "Could not add MCP connection"); }
+    finally { setMcpBusy(false); }
+  }
+
+  async function removeMcpConnection(connectionId: string) {
+    if (!mcpProjectId) return;
+    setMcpBusy(true); setMcpMessage(null);
+    try {
+      await deleteMcpConnection(mcpProjectId, connectionId);
+      setMcpConnections((rows) => rows.filter((row) => row.id !== connectionId));
+      setMcpMessage("MCP connection removed");
+    } catch (error) { setMcpMessage(error instanceof Error ? error.message : "Could not remove MCP connection"); }
+    finally { setMcpBusy(false); }
+  }
 
   async function saveSettings() {
     setSettingsSaving(true);
@@ -187,7 +252,41 @@ export default function SettingsPage() {
           ))}
         </div>
 
-        {tab !== "general" ? (
+        {tab === "instructions" ? (
+          <section className={`${CARD} p-6`}>
+            <div><p className="font-display text-lg font-bold">Global Workspace Instructions</p><p className="mt-1 max-w-2xl text-[13px] leading-relaxed text-ink/55">These durable instructions apply to every project, model, and connected agent in this workspace. Project-specific instructions can add narrower rules from each project’s Instructions & Tools page.</p></div>
+            <div className="mt-5 flex items-center justify-between gap-4 rounded-xl border border-ink/[0.07] bg-[#FAFBFD] px-4 py-3.5">
+              <div><p className="text-sm font-semibold">Use global instructions</p><p className="mt-0.5 text-[13px] text-ink/50">Turn this off across the workspace without deleting the instruction document.</p></div>
+              <Toggle on={instructionActive} onChange={setInstructionActive}/>
+            </div>
+            <div className="mt-5">
+              <div className="flex items-end justify-between gap-4"><div><label className="text-[13px] font-medium text-ink/75">Instruction document</label><p className="mt-0.5 text-xs text-ink/45">Markdown is supported. Include goals, constraints, terminology, response rules, and approval requirements.</p></div><p className="shrink-0 text-xs text-ink/40">Version {instructionVersion}{instructionUpdatedAt ? ` · ${new Date(instructionUpdatedAt).toLocaleString()}` : ""}</p></div>
+              <textarea value={instructionContent} onChange={(event) => setInstructionContent(event.target.value)} rows={18} placeholder="# Workspace principles\n\n# Response rules\n- Ground answers in available project context.\n\n# Security rules\n- Ask before external writes." className="mt-3 w-full resize-y rounded-xl border border-ink/12 bg-white p-4 font-mono text-[13px] leading-relaxed outline-none focus:border-blue-400"/>
+              <div className="mt-4 flex flex-wrap items-center justify-between gap-3"><p className="text-xs text-ink/45">{instructionContent.length.toLocaleString()} characters · approximately {Math.ceil(instructionContent.length / 4).toLocaleString()} tokens</p><div className="flex items-center gap-3">{instructionMessage && <p className={`text-xs ${instructionMessage === "Global instructions saved" ? "text-emerald-600" : "text-rose-600"}`}>{instructionMessage}</p>}<button type="button" onClick={saveInstructions} disabled={instructionBusy} className="rounded-lg bg-blue-600 px-4 py-2 text-[13px] font-semibold text-white hover:bg-blue-700 disabled:opacity-50">{instructionBusy ? "Saving..." : "Save global instructions"}</button></div></div>
+            </div>
+          </section>
+        ) : tab === "mcp" ? (
+          <section className={`${CARD} p-6`}>
+            <div className="flex flex-wrap items-start justify-between gap-4">
+              <div><p className="font-display text-lg font-bold">MCP Connections</p><p className="mt-1 text-[13px] text-ink/55">Connect Streamable HTTP MCP servers to a project. Models can discover and call the allowed tools.</p></div>
+              <select value={mcpProjectId} onChange={(event) => setMcpProjectId(event.target.value)} className="h-10 min-w-64 rounded-lg border border-ink/12 bg-white px-3 text-sm outline-none focus:border-blue-400">
+                {projects.length === 0 && <option value="">No projects available</option>}
+                {projects.map((project) => <option key={project.id} value={project.id}>{project.name}</option>)}
+              </select>
+            </div>
+            <div className="mt-5 grid gap-4 rounded-xl border border-ink/[0.07] bg-[#FAFBFD] p-4 sm:grid-cols-2">
+              <Field label="Connection name" hint="Used to namespace tools exposed to models."><input value={mcpForm.name} onChange={(event) => setMcpForm({...mcpForm, name:event.target.value})} placeholder="Company tools" className={INPUT_CLS}/></Field>
+              <Field label="Server URL" hint="HTTPS is required, except for localhost development."><input value={mcpForm.url} onChange={(event) => setMcpForm({...mcpForm, url:event.target.value})} placeholder="https://example.com/mcp" className={INPUT_CLS}/></Field>
+              <Field label="Authentication headers" hint="JSON object. Values stay server-side and are never returned."><input type="password" value={mcpForm.headers} onChange={(event) => setMcpForm({...mcpForm, headers:event.target.value})} placeholder={'{"Authorization":"Bearer ..."}'} className={INPUT_CLS}/></Field>
+              <Field label="Allowed tools" hint="Comma-separated. Leave blank to expose every tool from this server."><input value={mcpForm.tools} onChange={(event) => setMcpForm({...mcpForm, tools:event.target.value})} placeholder="search, create_ticket" className={INPUT_CLS}/></Field>
+              <div className="flex items-center gap-3 sm:col-span-2"><button type="button" onClick={addMcpConnection} disabled={mcpBusy || !mcpProjectId || !mcpForm.name.trim() || !mcpForm.url.trim()} className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-[13px] font-semibold text-white hover:bg-blue-700 disabled:opacity-50"><Plus className="h-4 w-4"/>{mcpBusy ? "Saving..." : "Add connection"}</button>{mcpMessage && <p className="text-xs text-ink/55">{mcpMessage}</p>}</div>
+            </div>
+            <div className="mt-5 space-y-3">
+              {mcpProjectId && mcpConnections.length === 0 && <div className="rounded-xl border border-dashed border-ink/15 px-5 py-8 text-center text-sm text-ink/45">No MCP connections for this project yet.</div>}
+              {mcpConnections.map((connection) => <div key={connection.id} className="flex items-start justify-between gap-4 rounded-xl border border-ink/[0.07] px-4 py-3.5"><div className="flex min-w-0 gap-3"><span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600"><Plug className="h-5 w-5"/></span><div className="min-w-0"><p className="text-sm font-semibold">{connection.name}</p><p className="truncate text-[13px] text-ink/55">{connection.url}</p><p className="mt-1 text-xs text-ink/40">Headers: {connection.header_names.join(", ") || "none"} · Tools: {connection.allowed_tools.join(", ") || "all discovered tools"}</p></div></div><button type="button" onClick={() => removeMcpConnection(connection.id)} disabled={mcpBusy} aria-label={`Remove ${connection.name}`} className="rounded-lg p-2 text-rose-500 hover:bg-rose-50 disabled:opacity-50"><Trash2 className="h-4 w-4"/></button></div>)}
+            </div>
+          </section>
+        ) : tab !== "general" ? (
           <div className={`${CARD} flex flex-col items-center px-6 py-16 text-center`}>
             <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-blue-50 text-blue-600">
               {(() => {

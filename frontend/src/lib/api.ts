@@ -40,6 +40,10 @@ import type {
   WatchStatus,
   WatchedFolder,
   WorkspaceSettings,
+  ProjectInstructions,
+  WorkspaceInstructions,
+  ProjectSkill,
+  McpConnection,
 } from "@/types";
 
 // Client-side requests go through the /api/backend/* rewrite in next.config.ts
@@ -139,6 +143,64 @@ export async function getProject(projectId: string): Promise<Project> {
   const res = await fetch(`${BASE}/v1/projects/${projectId}`, { cache: "no-store" });
   if (!res.ok) throw new Error(`Failed to load project: ${res.status} ${await res.text()}`);
   return res.json();
+}
+
+export async function getProjectInstructions(projectId: string): Promise<ProjectInstructions> {
+  const res = await fetch(`${BASE}/v1/projects/${projectId}/instructions`, { cache: "no-store" });
+  if (!res.ok) throw new Error(await readError(res, "Could not load project instructions"));
+  return res.json();
+}
+
+export async function saveProjectInstructions(projectId: string, content: string, isActive = true): Promise<ProjectInstructions> {
+  const res = await fetch(`${BASE}/v1/projects/${projectId}/instructions`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ content, is_active: isActive }) });
+  if (!res.ok) throw new Error(await readError(res, "Could not save project instructions"));
+  return res.json();
+}
+
+export async function getWorkspaceInstructions(ownerId: string): Promise<WorkspaceInstructions> {
+  const res = await fetch(`${BASE}/v1/settings/instructions?owner_id=${encodeURIComponent(ownerId)}`, { cache: "no-store" });
+  if (!res.ok) throw new Error(await readError(res, "Could not load global instructions"));
+  return res.json();
+}
+
+export async function saveWorkspaceInstructions(ownerId: string, content: string, isActive = true): Promise<WorkspaceInstructions> {
+  const res = await fetch(`${BASE}/v1/settings/instructions?owner_id=${encodeURIComponent(ownerId)}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ content, is_active: isActive }) });
+  if (!res.ok) throw new Error(await readError(res, "Could not save global instructions"));
+  return res.json();
+}
+
+export async function listProjectSkills(projectId: string): Promise<ProjectSkill[]> {
+  const res = await fetch(`${BASE}/v1/projects/${projectId}/skills`, { cache: "no-store" });
+  if (!res.ok) throw new Error(await readError(res, "Could not load project skills"));
+  return res.json();
+}
+
+export async function createProjectSkill(projectId: string, value: Omit<ProjectSkill, "id" | "project_id" | "created_at" | "updated_at">): Promise<ProjectSkill> {
+  const res = await fetch(`${BASE}/v1/projects/${projectId}/skills`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(value) });
+  if (!res.ok) throw new Error(await readError(res, "Could not create project skill"));
+  return res.json();
+}
+
+export async function deleteProjectSkill(projectId: string, skillId: string): Promise<void> {
+  const res = await fetch(`${BASE}/v1/projects/${projectId}/skills/${skillId}`, { method: "DELETE" });
+  if (!res.ok) throw new Error(await readError(res, "Could not delete project skill"));
+}
+
+export async function listMcpConnections(projectId: string): Promise<McpConnection[]> {
+  const res = await fetch(`${BASE}/v1/projects/${projectId}/mcp-connections`, { cache: "no-store" });
+  if (!res.ok) throw new Error(await readError(res, "Could not load MCP connections"));
+  return res.json();
+}
+
+export async function createMcpConnection(projectId: string, value: { name: string; url: string; headers: Record<string, string>; allowed_tools: string[]; is_enabled: boolean }): Promise<McpConnection> {
+  const res = await fetch(`${BASE}/v1/projects/${projectId}/mcp-connections`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(value) });
+  if (!res.ok) throw new Error(await readError(res, "Could not add MCP connection"));
+  return res.json();
+}
+
+export async function deleteMcpConnection(projectId: string, connectionId: string): Promise<void> {
+  const res = await fetch(`${BASE}/v1/projects/${projectId}/mcp-connections/${connectionId}`, { method: "DELETE" });
+  if (!res.ok) throw new Error(await readError(res, "Could not remove MCP connection"));
 }
 
 export async function updateProject(

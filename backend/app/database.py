@@ -1506,3 +1506,135 @@ def delete_context_folder(project_id: str, name: str) -> None:
             "UPDATE project_context SET folder = NULL, updated_at = ? WHERE project_id = ? AND folder = ?",
             (_now(), project_id, name),
         )
+
+
+# --- project intelligence: instructions, skills, MCP, tool audit ------------
+
+def get_project_instructions(project_id: str) -> dict[str, Any]:
+    with get_connection() as conn:
+        row = conn.execute("SELECT * FROM project_instructions WHERE project_id = ?", (project_id,)).fetchone()
+    if row:
+        result = dict(row)
+        result["is_active"] = bool(result["is_active"])
+        return result
+    now = _now()
+    return {"project_id": project_id, "content": "", "version": 0, "is_active": True, "created_at": now, "updated_at": now}
+
+
+def set_project_instructions(project_id: str, content: str, is_active: bool) -> dict[str, Any]:
+    now = _now()
+    with get_connection() as conn:
+        conn.execute(
+            "INSERT INTO project_instructions (project_id, content, version, is_active, created_at, updated_at) "
+            "VALUES (?, ?, 1, ?, ?, ?) ON CONFLICT(project_id) DO UPDATE SET "
+            "content = excluded.content, version = project_instructions.version + 1, "
+            "is_active = excluded.is_active, updated_at = excluded.updated_at",
+            (project_id, content, int(is_active), now, now),
+        )
+    return get_project_instructions(project_id)
+
+
+def get_workspace_instructions(owner_id: str) -> dict[str, Any]:
+    with get_connection() as conn:
+        row = conn.execute("SELECT * FROM workspace_instructions WHERE owner_id = ?", (owner_id,)).fetchone()
+    if row:
+        result = dict(row)
+        result["is_active"] = bool(result["is_active"])
+        return result
+    now = _now()
+    return {"owner_id": owner_id, "content": "", "version": 0, "is_active": True, "created_at": now, "updated_at": now}
+
+
+def set_workspace_instructions(owner_id: str, content: str, is_active: bool) -> dict[str, Any]:
+    now = _now()
+    with get_connection() as conn:
+        conn.execute(
+            "INSERT INTO workspace_instructions (owner_id, content, version, is_active, created_at, updated_at) "
+            "VALUES (?, ?, 1, ?, ?, ?) ON CONFLICT(owner_id) DO UPDATE SET "
+            "content = excluded.content, version = workspace_instructions.version + 1, "
+            "is_active = excluded.is_active, updated_at = excluded.updated_at",
+            (owner_id, content, int(is_active), now, now),
+        )
+    return get_workspace_instructions(owner_id)
+
+
+def _skill_row(row: sqlite3.Row) -> dict[str, Any]:
+    value = dict(row)
+    value["tool_names"] = json.loads(value.get("tool_names") or "[]")
+    value["is_enabled"] = bool(value["is_enabled"])
+    return value
+
+
+def list_project_skills(project_id: str, enabled_only: bool = False) -> list[dict[str, Any]]:
+    sql = "SELECT * FROM project_skills WHERE project_id = ?"
+    if enabled_only:
+        sql += " AND is_enabled = 1"
+    sql += " ORDER BY name"
+    with get_connection() as conn:
+        return [_skill_row(row) for row in conn.execute(sql, (project_id,)).fetchall()]
+
+
+def create_project_skill(project_id: str, data: dict[str, Any]) -> dict[str, Any]:
+    skill_id, now = _new_id(), _now()
+    with get_connection() as conn:
+        conn.execute(
+            "INSERT INTO project_skills (id, project_id, name, description, instructions, tool_names, is_enabled, created_at, updated_at) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            (skill_id, project_id, data["name"].strip(), data["description"].strip(), data["instructions"].strip(),
+             json.dumps(data.get("tool_names", [])), int(data.get("is_enabled", True)), now, now),
+        )
+        row = conn.execute("SELECT * FROM project_skills WHERE id = ?", (skill_id,)).fetchone()
+    return _skill_row(row)
+
+
+def delete_project_skill(project_id: str, skill_id: str) -> bool:
+    with get_connection() as conn:
+        cursor = conn.execute("DELETE FROM project_skills WHERE project_id = ? AND id = ?", (project_id, skill_id))
+        return cursor.rowcount > 0
+
+
+def _mcp_row(row: sqlite3.Row, include_headers: bool = False) -> dict[str, Any]:
+    value = dict(row)
+    headers = json.loads(value.pop("headers", "{}") or "{}")
+    value["header_names"] = sorted(headers)
+    if include_headers:
+        value["headers"] = headers
+    value["allowed_tools"] = json.loads(value.get("allowed_tools") or "[]")
+    value["is_enabled"] = bool(value["is_enabled"])
+    return value
+
+
+def list_mcp_connections(project_id: str, include_headers: bool = False) -> list[dict[str, Any]]:
+    with get_connection() as conn:
+        rows = conn.execute("SELECT * FROM mcp_connections WHERE project_id = ? ORDER BY name", (project_id,)).fetchall()
+    return [_mcp_row(row, include_headers) for row in rows]
+
+
+def create_mcp_connection(project_id: str, data: dict[str, Any]) -> dict[str, Any]:
+    connection_id, now = _new_id(), _now()
+    with get_connection() as conn:
+        conn.execute(
+            "INSERT INTO mcp_connections (id, project_id, name, url, headers, allowed_tools, is_enabled, created_at, updated_at) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            (connection_id, project_id, data["name"].strip(), data["url"].strip(), json.dumps(data.get("headers", {})),
+             json.dumps(data.get("allowed_tools", [])), int(data.get("is_enabled", True)), now, now),
+        )
+        row = conn.execute("SELECT * FROM mcp_connections WHERE id = ?", (connection_id,)).fetchone()
+    return _mcp_row(row)
+
+
+def delete_mcp_connection(project_id: str, connection_id: str) -> bool:
+    with get_connection() as conn:
+        cursor = conn.execute("DELETE FROM mcp_connections WHERE project_id = ? AND id = ?", (project_id, connection_id))
+        return cursor.rowcount > 0
+
+
+def record_tool_execution(project_id: str, model_id: str, tool_name: str, arguments: dict[str, Any],
+                          output: str | None, success: bool, error: str | None = None,
+                          message_id: str | None = None) -> None:
+    with get_connection() as conn:
+        conn.execute(
+            "INSERT INTO tool_executions (id, project_id, message_id, model_id, tool_name, arguments, output, success, error, created_at) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            (_new_id(), project_id, message_id, model_id, tool_name, json.dumps(arguments), output, int(success), error, _now()),
+        )

@@ -6,7 +6,7 @@ the authenticated admin adapter and require an explicit bearer token.
 from fastapi import APIRouter, Header, HTTPException
 from fastapi.concurrency import run_in_threadpool
 
-from app import agent_client, database, sage_client
+from app import agent_client, database, sage_client, tool_runtime
 from app.config import get_settings
 from app.schemas import AgentChatRequest, AgentChatResponse, ChatMessage, ModelResponse, SageChatRequest, SageChatResponse
 
@@ -16,6 +16,23 @@ ADMIN_AGENT_KEYS = {
     "lisa", "content", "beacon", "dossier", "nurturer", "proposal", "arch", "ada",
     "chief", "sketch", "scout", "radar", "reel", "chloe", "wendy", "allie",
 }
+
+
+def _with_project_instructions(project_id: str, message: str) -> str:
+    project = database.get_project(project_id) or {}
+    workspace = database.get_workspace_instructions(project.get("owner_id", ""))
+    instructions = database.get_project_instructions(project_id)
+    blocks = []
+    if workspace.get("is_active") and workspace.get("content", "").strip():
+        blocks.append(f"Global workspace instructions:\n{workspace['content'].strip()}")
+    if instructions.get("is_active") and instructions.get("content", "").strip():
+        blocks.append(f"Shared project instructions:\n{instructions['content'].strip()}")
+    selected = tool_runtime.select_skills(project_id, message)
+    skills = tool_runtime.skill_prompt(selected)
+    if skills:
+        blocks.append(skills)
+    prefix = "\n\n".join(blocks)
+    return f"{prefix}\n\nTask:\n{message}" if blocks else message
 
 
 def _shared_memory_authorized(token: str | None) -> None:
@@ -74,7 +91,7 @@ async def sage_chat(req: SageChatRequest) -> dict:
     transcript = database.build_agent_transcript(conv["id"], reply_role="agent")
 
     try:
-        result = await run_in_threadpool(sage_client.chat, message, transcript, conv.get("external_token"))
+        result = await run_in_threadpool(sage_client.chat, _with_project_instructions(req.project_id, message), transcript, conv.get("external_token"))
     except sage_client.SageError as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc
 
@@ -122,7 +139,7 @@ async def admin_agent_chat(req: AgentChatRequest) -> dict:
         transcript = database.get_shared_agent_memory(req.memory_key or req.project_id, req.agent_key)
         if not transcript:
             transcript = database.build_agent_transcript(conversation["id"], reply_role="agent")
-        result = await run_in_threadpool(agent_client.chat, req.agent_key, message, transcript)
+        result = await run_in_threadpool(agent_client.chat, req.agent_key, _with_project_instructions(req.project_id, message), transcript)
     except agent_client.AgentError as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc
     user_message = database.save_message(conversation["id"], ChatMessage(role="user", content=message))

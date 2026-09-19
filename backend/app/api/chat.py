@@ -3,7 +3,7 @@
 import re
 from fastapi import APIRouter, HTTPException
 
-from app import context_meta, database, github_client, retrieval
+from app import context_meta, database, github_client, retrieval, tool_runtime
 from app.config import MODEL_REGISTRY
 from app.router import route_and_complete
 from app.schemas import (
@@ -151,12 +151,33 @@ async def chat(req: ChatRequest) -> ChatResponse:
             grounding += f"\n\nProject Context Library:\n\n{context_blob}"
         messages = [ChatMessage(role="system", content=grounding), *messages]
 
+    query = retrieval.query_from_messages(list(req.messages))
+    runtime_tools = []
+    selected_skills: list[dict] = []
+    if req.enable_tools:
+        runtime_tools, selected_skills = await tool_runtime.build_tools(req.project_id, query or "")
+    instructions = database.get_project_instructions(req.project_id)
+    shared_blocks = []
+    workspace_instructions = database.get_workspace_instructions((project or {}).get("owner_id", ""))
+    if workspace_instructions.get("is_active") and workspace_instructions.get("content", "").strip():
+        shared_blocks.append("Global Workspace Instructions (apply across every project):\n" + workspace_instructions["content"].strip())
+    if instructions.get("is_active") and instructions.get("content", "").strip():
+        shared_blocks.append("Shared Project Instructions (follow for every model and agent):\n" + instructions["content"].strip())
+    skills_text = tool_runtime.skill_prompt(selected_skills)
+    if skills_text:
+        shared_blocks.append(skills_text)
+    if shared_blocks:
+        messages = [ChatMessage(role="system", content="\n\n".join(shared_blocks)), *messages]
+
     affinity: dict[str, int] = {}
     if req.criteria.use_project_affinity:
         affinity = database.get_model_affinity(req.project_id, req.criteria.task_type)
 
     try:
-        responses, chosen_model_id, synthesis = await route_and_complete(messages, req.criteria, affinity=affinity)
+        responses, chosen_model_id, synthesis = await route_and_complete(
+            messages, req.criteria, affinity=affinity, project_id=req.project_id,
+            tools=runtime_tools, max_tool_rounds=req.max_tool_rounds,
+        )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 

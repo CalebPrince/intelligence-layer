@@ -125,6 +125,7 @@ MODEL_REGISTRY: list[ModelSpec] = [
             Capability.VISION,
             Capability.FAST,
             Capability.CHEAP,
+            Capability.FUNCTION_CALLING,
         ],
         speed_tier=1,
     ),
